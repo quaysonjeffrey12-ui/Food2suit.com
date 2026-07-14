@@ -109,6 +109,14 @@
                     <label class="block text-[11px] font-bold text-gray-400 uppercase mb-1">Kitchen Address</label>
                     <input type="text" id="cfg-address" required class="w-full bg-gray-900 border border-gray-700 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10">
                 </div>
+                <div>
+                    <label class="block text-[11px] font-bold text-gray-400 uppercase mb-1">WhatsApp Number</label>
+                    <input type="text" id="cfg-whatsapp" placeholder="233501234567" class="w-full bg-gray-900 border border-gray-700 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10">
+                </div>
+                <div class="md:col-span-3">
+                    <label class="block text-[11px] font-bold text-gray-400 uppercase mb-1">About Food2Suit</label>
+                    <textarea id="cfg-about" rows="3" class="w-full bg-gray-900 border border-gray-700 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10"></textarea>
+                </div>
                 <div class="md:col-span-3 flex justify-end pt-2">
                     <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 py-2.5 rounded-xl text-xs shadow-md shadow-emerald-950/50 transition-all duration-300 hover:scale-[1.02] active:scale-95">Save Layout Modifications</button>
                 </div>
@@ -285,7 +293,8 @@
         const BASELINE_META = {
             brandName: "Food2Suit", motto: "Everything Food", bannerTag: "Free Delivery over GH₵ 150",
             heroTitle: "Authentic Meals, Made with Love", heroDesc: "From everyday lunches to unforgettable events, Food2Suit serves delicious meals with quality ingredients and care.",
-            email: "hello@food2suit.com", phone: "+233 50 123 4567", address: "East Legon, Accra, Ghana"
+            email: "hello@food2suit.com", phone: "+233 50 123 4567", address: "East Legon, Accra, Ghana",
+            whatsapp: "233501234567", about: "From everyday meals to celebrations, Food2Suit brings trusted local flavour, quality ingredients, and warm service to every order."
         };
 
         window.addEventListener('load', loadGlobalState);
@@ -356,6 +365,8 @@
             document.getElementById('cfg-phone').value = DATA_INFO.phone || '';
             document.getElementById('cfg-email').value = DATA_INFO.email || '';
             document.getElementById('cfg-address').value = DATA_INFO.address || '';
+            document.getElementById('cfg-whatsapp').value = DATA_INFO.whatsapp || '';
+            document.getElementById('cfg-about').value = DATA_INFO.about || '';
         }
 
         function renderRegistryGridTable() {
@@ -515,7 +526,9 @@
                 heroDesc: document.getElementById('cfg-desc').value,
                 phone: document.getElementById('cfg-phone').value,
                 email: document.getElementById('cfg-email').value,
-                address: document.getElementById('cfg-address').value
+                address: document.getElementById('cfg-address').value,
+                whatsapp: document.getElementById('cfg-whatsapp').value,
+                about: document.getElementById('cfg-about').value
             };
             localStorage.setItem('food2suit_registry_meta', JSON.stringify(DATA_INFO));
             alert("Global settings saved and synchronized!");

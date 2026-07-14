@@ -99,6 +99,10 @@ html {
         #view-home section.relative button:hover { background:#FF6B35; color:#fff; transform:scale(1.1); box-shadow:0 12px 26px rgba(255,107,53,.45); }
         .home-category { transition: transform .22s ease, color .22s ease, box-shadow .22s ease; border-radius: 18px; }
         .home-category:hover { transform: scale(1.08); color:#FF6B35; box-shadow:0 10px 22px rgba(255,107,53,.15); }
+        #view-home section.relative > .relative.z-10.ml-auto { width:128px; height:128px; flex-direction:column; line-height:1.05; letter-spacing:-.04em; box-shadow:0 16px 34px rgba(255,107,53,.35); transform:rotate(5deg); }
+        #view-home section.relative > .relative.z-10.ml-auto span { display:block; margin-top:4px; line-height:.85; }
+        #featured-grid button { font-size:0; }
+        #featured-grid button::after { content:'Add to Tray'; font-size:12px; }
         #view-menu, #view-offers, #view-contact { display:none !important; }
     </style>
 </head>
@@ -622,13 +626,13 @@ html {
 
         function openOptionsModal(product) {
             activeModalProductId = product.id;
-            const firstOption = typeof product.options[0] === 'string' ? { name: product.options[0], price: 5 } : product.options[0];
+            const firstOption = typeof product.options[0] === 'string' ? { name: product.options[0], price: 0 } : product.options[0];
             selectedOptionText = firstOption.name;
             selectedOptionCost = Number(firstOption.price || 0);
             document.getElementById('modal-title').innerText = product.name;
             const container = document.getElementById('modal-options-container');
             container.innerHTML = product.options.map((rawOption, idx) => {
-                const option = typeof rawOption === 'string' ? { name: rawOption, price: 5 } : rawOption;
+                const option = typeof rawOption === 'string' ? { name: rawOption, price: 0 } : rawOption;
                 return `
                 <button onclick='selectModalOption(this, ${JSON.stringify(option.name)}, ${Number(option.price || 0)})' class="option-choice-btn w-full flex items-center justify-between px-5 py-4 rounded-2xl border text-sm font-semibold transition-all ${idx === 0 ? 'border-[#FF6B35] bg-orange-50/50 dark:bg-orange-950/20 text-[#FF6B35]' : 'border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 text-gray-800 dark:text-gray-200'}">
                     <span>${option.name}</span><span class="text-[#FF6B35] text-xs">+ GH₵ ${Number(option.price || 0).toFixed(2)}</span>

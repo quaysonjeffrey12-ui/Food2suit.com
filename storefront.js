@@ -4,7 +4,7 @@
   const money = value => `GH₵ ${Number(value || 0).toFixed(2)}`;
   const getCart = () => JSON.parse(localStorage.getItem(CART_KEY) || '[]');
   const saveCart = cart => localStorage.setItem(CART_KEY, JSON.stringify(cart));
-  const optionData = option => typeof option === 'string' ? { name: option, price: 5 } : { name: option.name || 'Custom side', price: Number(option.price || 0) };
+  const optionData = option => typeof option === 'string' ? { name: option, price: 0 } : { name: option.name || 'Custom side', price: Number(option.price || 0) };
 
   function applyTheme() {
     const dark = localStorage.getItem(THEME_KEY) === 'dark';
@@ -67,6 +67,80 @@
     document.body.insertAdjacentHTML('beforeend', `<footer class="sf-footer"><div><a href="index.html" class="sf-footer-brand">Food2Suit</a><p>Everything Food — prepared with care, served with love.</p></div><nav><a href="menu.html">Menu</a><a href="offers.html">Offers & Bundles</a><a href="contact.html">Contact Us</a></nav><p class="sf-copy">© 2026 Food2Suit. All rights reserved.</p></footer>`);
   }
 
+  function addMobileNavigation() {
+    if (document.getElementById('sf-mobile-nav')) return;
+    const current = location.pathname.split('/').pop() || 'index.html';
+    const links = [['index.html', 'Home', '⌂'], ['menu.html', 'Menu', '☰'], ['offers.html', 'Offers', '✦'], ['contact.html', 'Contact', '✉']];
+    document.body.insertAdjacentHTML('beforeend', `<nav id="sf-mobile-nav" aria-label="Mobile page navigation">${links.map(([href, label, icon]) => `<a href="${href}" class="${current === href ? 'active' : ''}"><span>${icon}</span>${label}</a>`).join('')}</nav>`);
+  }
+
+  function addReviewForm() {
+    const homeExtras = document.getElementById('sf-home-extras');
+    if (!homeExtras || document.getElementById('sf-review-form')) return;
+    homeExtras.insertAdjacentHTML('beforeend', `<section class="sf-review-form-wrap"><div><p class="sf-kicker">Share your experience</p><h2>Enjoyed your Food2Suit meal?</h2><p>Leave a short review for other customers.</p></div><form id="sf-review-form"><input id="sf-review-name" required maxlength="40" placeholder="Your name"><select id="sf-review-rating" aria-label="Rating"><option value="5">★★★★★ — 5 stars</option><option value="4">★★★★☆ — 4 stars</option><option value="3">★★★☆☆ — 3 stars</option></select><textarea id="sf-review-message" required maxlength="220" placeholder="Tell us about your meal"></textarea><button>Post review</button></form><div id="sf-user-reviews" class="sf-user-reviews"></div></section>`);
+    const reviewKey = 'food2suit_customer_reviews';
+    const renderReviews = () => {
+      const reviews = JSON.parse(localStorage.getItem(reviewKey) || '[]');
+      document.getElementById('sf-user-reviews').innerHTML = reviews.slice(-3).reverse().map(review => `<article><b>${'★'.repeat(review.rating)}<span>${'★'.repeat(5 - review.rating)}</span></b><p>“${review.message.replace(/[<>&]/g, '')}”</p><small>— ${review.name.replace(/[<>&]/g, '')}</small></article>`).join('');
+    };
+    document.getElementById('sf-review-form').addEventListener('submit', event => {
+      event.preventDefault();
+      const reviews = JSON.parse(localStorage.getItem(reviewKey) || '[]');
+      reviews.push({ name: document.getElementById('sf-review-name').value.trim(), rating: Number(document.getElementById('sf-review-rating').value), message: document.getElementById('sf-review-message').value.trim() });
+      localStorage.setItem(reviewKey, JSON.stringify(reviews)); event.target.reset(); renderReviews();
+    });
+    renderReviews();
+  }
+
+  function upgradeReviewForm() {
+    const form = document.getElementById('sf-review-form');
+    const select = document.getElementById('sf-review-rating');
+    if (!form || !select || document.getElementById('sf-stars')) return;
+    select.style.display = 'none';
+    select.innerHTML = [1,2,3,4,5].map(value => `<option value="${value}">${value}</option>`).join('');
+    const stars = document.createElement('div');
+    stars.id = 'sf-stars'; stars.className = 'sf-stars'; stars.setAttribute('role', 'radiogroup');
+    stars.innerHTML = `${[1,2,3,4,5].map(value => `<button type="button" aria-label="${value} star${value > 1 ? 's' : ''}" data-rating="${value}">★</button>`).join('')}<span class="sf-star-caption">Select your rating</span>`;
+    select.parentNode.insertBefore(stars, select);
+    const setRating = value => {
+      select.value = String(value);
+      stars.querySelectorAll('button').forEach(button => button.classList.toggle('active', Number(button.dataset.rating) <= value));
+      stars.querySelector('.sf-star-caption').textContent = `${value} out of 5 stars`;
+    };
+    stars.querySelectorAll('button').forEach(button => button.addEventListener('click', () => setRating(Number(button.dataset.rating))));
+    setRating(5);
+  }
+
+  function upgradeFooter() {
+    const footer = document.querySelector('.sf-footer');
+    if (!footer) return;
+    const info = JSON.parse(localStorage.getItem('food2suit_registry_meta') || '{}');
+    const whatsapp = (info.whatsapp || info.phone || '+233501234567').replace(/[^0-9]/g, '');
+    footer.innerHTML = `<section><h3>Food2Suit</h3><a href="menu.html">Our Menu</a><a href="index.html#sf-about">Our Taste Guarantee</a><a href="index.html#sf-about">About Food2Suit</a></section><section><h3>Contact Food2Suit</h3><a href="contact.html">Contact Us</a><a href="https://wa.me/${whatsapp}" target="_blank" rel="noopener">WhatsApp</a></section><section><h3>Legal</h3><a href="terms.html">Terms of Use</a><a href="privacy.html">Privacy Policy</a></section><p class="sf-copy">© 2026 Food2Suit. Everything Food.</p>`;
+  }
+
+  function applySharedContent() {
+    const info = JSON.parse(localStorage.getItem('food2suit_registry_meta') || '{}');
+    const about = document.querySelector('.sf-about > p');
+    if (about && info.about) about.textContent = info.about;
+  }
+
+  function addGuaranteeSection() {
+    const homeExtras = document.getElementById('sf-home-extras');
+    if (!homeExtras || document.getElementById('sf-guarantee')) return;
+    const about = homeExtras.querySelector('.sf-about');
+    if (about) about.id = 'sf-about';
+    homeExtras.insertAdjacentHTML('afterbegin', `<section id="sf-guarantee" class="sf-guarantee"><div><p class="sf-kicker">Our Taste Guarantee</p><h2>Good food, handled with care.</h2><p>We prepare every Food2Suit meal with the care we would expect for our own table.</p></div><div class="sf-guarantee-grid"><article><span>🌿</span><h3>Fresh ingredients</h3><p>We focus on quality ingredients and thoughtful preparation.</p></article><article><span>🛡</span><h3>Hygienic preparation</h3><p>Clean kitchen practices are part of every meal we serve.</p></article><article><span>🛵</span><h3>Reliable delivery</h3><p>We work to get your food to you hot, fresh and on time.</p></article></div></section>`);
+  }
+
+  function makeFooterAnchorsWork() {
+    document.querySelectorAll('.sf-footer a').forEach(link => {
+      if (link.textContent.trim() === 'Our Taste Guarantee') link.href = 'index.html#sf-guarantee';
+      if (link.textContent.trim() === 'About Food2Suit') link.href = 'index.html#sf-about';
+    });
+    if (location.hash === '#sf-guarantee' || location.hash === '#sf-about') setTimeout(() => document.querySelector(location.hash)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
+  }
+
   function addHomeSections() {
     const onHome = /(^|\/)index\.html$/.test(location.pathname) || /Food2suit\.com\/$/.test(location.pathname);
     if (!onHome || document.getElementById('sf-home-extras')) return;
@@ -85,7 +159,11 @@
   };
 
   document.addEventListener('DOMContentLoaded', () => {
-    applyTheme(); ensureHeaderControls(); addHomeSections(); addFooter();
+    if (!document.querySelector('link[href="enhancements.css"]')) document.head.insertAdjacentHTML('beforeend', '<link rel="stylesheet" href="enhancements.css">');
+    if (!document.querySelector('link[href="footer-review.css"]')) document.head.insertAdjacentHTML('beforeend', '<link rel="stylesheet" href="footer-review.css">');
+    if (!document.querySelector('link[href="guarantee.css"]')) document.head.insertAdjacentHTML('beforeend', '<link rel="stylesheet" href="guarantee.css">');
+    applyTheme(); ensureHeaderControls(); addHomeSections(); addGuaranteeSection(); addReviewForm(); upgradeReviewForm(); addFooter(); upgradeFooter(); applySharedContent(); addMobileNavigation(); makeFooterAnchorsWork();
+    if (location.pathname.endsWith('/offers.html')) document.body.classList.add('sf-offers');
     document.body.insertAdjacentHTML('beforeend', `<aside id="sf-cart-drawer" aria-label="Food tray"><div class="sf-cart-head"><b>Your Food Tray</b><button onclick="Food2Suit.toggleCart()" aria-label="Close tray">×</button></div><div id="sf-cart-items"></div><div class="sf-cart-foot"><span>Total</span><b id="sf-cart-total">GH₵ 0.00</b><button onclick="alert('Checkout is coming soon.')">Checkout</button></div></aside><div id="sf-customizer" role="dialog" aria-modal="true"><div class="sf-customizer-backdrop" onclick="document.getElementById('sf-customizer').classList.remove('open')"></div><div class="sf-customizer-box"><button class="sf-modal-close" onclick="document.getElementById('sf-customizer').classList.remove('open')" aria-label="Close">×</button><p class="sf-kicker">Make it yours</p><h2 id="sf-customizer-title"></h2><p id="sf-customizer-base"></p><div id="sf-customizer-options"></div><button id="sf-customizer-confirm" class="sf-confirm">Add to tray</button></div></div>`);
     renderCart();
   });
