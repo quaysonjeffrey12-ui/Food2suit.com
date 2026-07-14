@@ -1,0 +1,527 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Food2Suit Management Console</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Plus Jakarta Sans', sans-serif; }
+        
+        /* Smooth panel entry animations */
+        .admin-panel { 
+            transition: opacity 0.4s cubic-bezier(0.16, 1, 0.3, 1), 
+                        transform 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            transform: translateY(0);
+            opacity: 1;
+        }
+        
+        /* Clean slide-down hide state */
+        .admin-panel.hidden-frame { 
+            opacity: 0; 
+            transform: translateY(16px); 
+            pointer-events: none; 
+            position: absolute; 
+            width: 100%; 
+            display: none; 
+        }
+
+        /* Input focus glow transition */
+        input, textarea, select {
+            transition: all 0.2s ease-in-out;
+        }
+
+        /* Custom row fade-in for dynamic tables */
+        @keyframes fadeInRow {
+            from { opacity: 0; transform: translateX(-6px); }
+            to { opacity: 1; transform: translateX(0); }
+        }
+        tr.ledger-row {
+            animation: fadeInRow 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+        }
+    </style>
+</head>
+<body class="bg-gray-900 text-gray-100 antialiased min-h-screen flex flex-col md:flex-row">
+
+    <aside class="w-full md:w-64 bg-gray-950 border-b md:border-b-0 md:border-r border-gray-800 flex flex-col shrink-0 z-10">
+        <div class="h-16 px-6 flex items-center border-b border-gray-800/60 gap-3">
+            <span class="w-2.5 h-2.5 rounded-full bg-orange-500 animate-pulse"></span>
+            <span class="font-bold text-sm uppercase tracking-wider text-white">Food2Suit Core</span>
+        </div>
+        
+        <nav class="flex-1 p-4 space-y-1.5 flex flex-row md:flex-col overflow-x-auto md:overflow-x-visible">
+            <button onclick="switchAdminTab('setup')" id="tab-btn-setup" class="tab-link w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all duration-300 bg-orange-600 text-white scale-[1.02] shadow-lg shadow-orange-950/40 whitespace-nowrap">
+                ⚙️ Core Setup
+            </button>
+            <button onclick="switchAdminTab('dishes')" id="tab-btn-dishes" class="tab-link w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all duration-300 text-gray-400 hover:bg-gray-900 hover:text-white whitespace-nowrap">
+                🍲 Dish Deck
+            </button>
+            <button onclick="switchAdminTab('combos')" id="tab-btn-combos" class="tab-link w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all duration-300 text-gray-400 hover:bg-gray-900 hover:text-white whitespace-nowrap">
+                📦 Combos & Bundles
+            </button>
+        </nav>
+
+        <div class="p-4 border-t border-gray-800/60 hidden md:block">
+            <button onclick="wipeAndResetAll()" class="w-full bg-red-950/20 text-red-400 hover:bg-red-950/60 border border-red-900/40 text-[10px] py-2 rounded-xl transition-all duration-200 active:scale-95 font-semibold text-center">
+                Wipe & Reset System
+            </button>
+        </div>
+    </aside>
+
+    <main class="flex-1 p-6 md:p-10 max-w-6xl overflow-y-auto relative min-h-[calc(100vh-4rem)] md:min-h-screen">
+        
+        <section id="panel-setup" class="admin-panel space-y-6">
+            <div class="border-b border-gray-800 pb-4">
+                <h2 class="text-xl font-bold text-white tracking-tight">Global Storefront Settings</h2>
+                <p class="text-xs text-gray-400 mt-1">Live-configure branding parameters, text fields, banners, and primary support endpoints.</p>
+            </div>
+            <form onsubmit="handleSaveGlobalInfo(event)" class="bg-gray-950 border border-gray-800 rounded-3xl p-6 grid grid-cols-1 md:grid-cols-3 gap-5 shadow-xl shadow-black/40">
+                <div>
+                    <label class="block text-[11px] font-bold text-gray-400 uppercase mb-1">Brand Name</label>
+                    <input type="text" id="cfg-brand" required class="w-full bg-gray-900 border border-gray-700 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-bold text-gray-400 uppercase mb-1">Tagline / Motto</label>
+                    <input type="text" id="cfg-motto" required class="w-full bg-gray-900 border border-gray-700 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-bold text-gray-400 uppercase mb-1">Banner Text Promo</label>
+                    <input type="text" id="cfg-banner" required class="w-full bg-gray-900 border border-gray-700 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10">
+                </div>
+                <div class="md:col-span-3">
+                    <label class="block text-[11px] font-bold text-gray-400 uppercase mb-1">Hero Title</label>
+                    <input type="text" id="cfg-title" required class="w-full bg-gray-900 border border-gray-700 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10">
+                </div>
+                <div class="md:col-span-3">
+                    <label class="block text-[11px] font-bold text-gray-400 uppercase mb-1">Hero Description</label>
+                    <textarea id="cfg-desc" rows="3" required class="w-full bg-gray-900 border border-gray-700 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10"></textarea>
+                </div>
+                <div>
+                    <label class="block text-[11px] font-bold text-gray-400 uppercase mb-1">Contact Hotline</label>
+                    <input type="text" id="cfg-phone" required class="w-full bg-gray-900 border border-gray-700 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-bold text-gray-400 uppercase mb-1">Contact Email</label>
+                    <input type="email" id="cfg-email" required class="w-full bg-gray-900 border border-gray-700 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10">
+                </div>
+                <div>
+                    <label class="block text-[11px] font-bold text-gray-400 uppercase mb-1">Kitchen Address</label>
+                    <input type="text" id="cfg-address" required class="w-full bg-gray-900 border border-gray-700 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10">
+                </div>
+                <div class="md:col-span-3 flex justify-end pt-2">
+                    <button type="submit" class="bg-emerald-600 hover:bg-emerald-700 text-white font-bold px-6 py-2.5 rounded-xl text-xs shadow-md shadow-emerald-950/50 transition-all duration-300 hover:scale-[1.02] active:scale-95">Save Layout Modifications</button>
+                </div>
+            </form>
+        </section>
+
+        <section id="panel-dishes" class="admin-panel space-y-8 hidden-frame">
+            <div class="border-b border-gray-800 pb-4">
+                <h2 class="text-xl font-bold text-white tracking-tight">Menu Dish Deployment Deck</h2>
+                <p class="text-xs text-gray-400 mt-1">Create, edit, classify, and delete individual meals listed on the public dynamic storefront card deck.</p>
+            </div>
+            
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+                <form onsubmit="handleCreateProduct(event)" class="bg-gray-950 border border-gray-800 rounded-3xl p-5 space-y-3.5 shadow-xl shadow-black/40">
+                    <h3 class="text-xs font-bold text-orange-500 uppercase tracking-wider mb-2">Deploy New Recipe</h3>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-400 uppercase mb-0.5">Dish Title</label>
+                        <input type="text" id="p-name" required placeholder="e.g. Premium Kenkey Basket" class="w-full bg-gray-900 border border-gray-700 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10">
+                    </div>
+                    <div class="grid grid-cols-2 gap-3">
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-400 uppercase mb-0.5">Price (GH₵)</label>
+                            <input type="number" step="0.01" id="p-price" required placeholder="50.00" class="w-full bg-gray-900 border border-gray-700 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10">
+                        </div>
+                        <div>
+                            <label class="block text-[10px] font-bold text-gray-400 uppercase mb-0.5">Menu Classification</label>
+                            <select id="p-category" class="w-full bg-gray-900 border border-gray-700 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10 cursor-pointer">
+                                <option value="rice">Rice Dishes</option>
+                                <option value="local">Local Specialties</option>
+                                <option value="salads">Salads & Sides</option>
+                                <option value="drinks">Drinks</option>
+                                <option value="proteins">Proteins</option>
+                            </select>
+                        </div>
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-400 uppercase mb-0.5">Sides & Options (Comma Separated)</label>
+                        <input type="text" id="p-options" placeholder="Extra Red Pepper, Grilled Tilapia, Avocado Chunk" class="w-full bg-gray-900 border border-gray-700 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-400 uppercase mb-0.5">Image Directory Path / URL</label>
+                        <input type="text" id="p-img" required value="images/placeholder.jpg" class="w-full bg-gray-900 border border-gray-700 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-400 uppercase mb-0.5">Description Context</label>
+                        <textarea id="p-desc" rows="2" required placeholder="Describe configuration, heat levels, portions..." class="w-full bg-gray-900 border border-gray-700 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10"></textarea>
+                    </div>
+                    <button type="submit" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-2.5 rounded-xl text-xs transition-all duration-300 hover:scale-[1.02] active:scale-95 mt-2 shadow-md shadow-orange-950/40">Deploy Dish to Matrix</button>
+                </form>
+
+                <div class="lg:col-span-2 bg-gray-950 border border-gray-800 rounded-3xl overflow-hidden shadow-xl shadow-black/40">
+                    <div class="p-4 border-b border-gray-800 bg-gray-950 font-bold text-xs text-white uppercase tracking-wider">Active Dishes Ledger</div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full border-collapse text-xs text-left">
+                            <thead>
+                                <tr class="bg-gray-900 text-gray-400 border-b border-gray-800 font-bold uppercase text-[10px]">
+                                    <th class="p-3 w-1/3">Dish Title / Asset Link</th>
+                                    <th class="p-3">Section</th>
+                                    <th class="p-3 w-20">Price (GH₵)</th>
+                                    <th class="p-3">Mod Options</th>
+                                    <th class="p-3 text-center">Feature</th>
+                                    <th class="p-3 text-center">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-tbody" class="divide-y divide-gray-800/60"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <section id="panel-combos" class="admin-panel space-y-8 hidden-frame">
+            <div class="border-b border-gray-800 pb-4">
+                <h2 class="text-xl font-bold text-white tracking-tight">Combos & Family Packs Room</h2>
+                <p class="text-xs text-gray-400 mt-1">Manage bundle promos, multi-dish sharing packs, and custom event deals.</p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
+                <form onsubmit="handleCreateBundle(event)" class="bg-gray-950 border border-gray-800 rounded-3xl p-5 space-y-3.5 shadow-xl shadow-black/40">
+                    <h3 class="text-xs font-bold text-purple-400 uppercase tracking-wider mb-2">Build Combo Pack</h3>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-400 uppercase mb-0.5">Bundle Combo Name</label>
+                        <input type="text" id="b-name" required placeholder="e.g. Twin Pack Promo" class="w-full bg-gray-900 border border-gray-700 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-400 uppercase mb-0.5">Bundle Price (GH₵)</label>
+                        <input type="number" step="0.01" id="b-price" required placeholder="180.00" class="w-full bg-gray-900 border border-gray-700 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-400 uppercase mb-0.5">Bundle Asset Track Path / URL</label>
+                        <select id="b-type" class="w-full mb-3 bg-gray-900 border border-gray-700 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-purple-500"><option value="combo">Combo Meal</option><option value="party">Party Tray</option></select>
+                        <input type="text" id="b-img" required value="images/placeholder-bundle.jpg" class="w-full bg-gray-900 border border-gray-700 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10">
+                    </div>
+                    <div>
+                        <label class="block text-[10px] font-bold text-gray-400 uppercase mb-0.5">Combo Inventory Breakdown</label>
+                        <textarea id="b-desc" rows="3" required placeholder="List package contents clearly..." class="w-full bg-gray-900 border border-gray-700 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-purple-500 focus:ring-4 focus:ring-purple-500/10"></textarea>
+                    </div>
+                    <button type="submit" class="w-full bg-purple-700 hover:bg-purple-800 text-white font-bold py-2.5 rounded-xl text-xs transition-all duration-300 hover:scale-[1.02] active:scale-95 mt-1 shadow-md shadow-purple-950/40">Bind Package Structure</button>
+                </form>
+
+                <div class="lg:col-span-2 bg-gray-950 border border-gray-800 rounded-3xl overflow-hidden shadow-xl shadow-black/40">
+                    <div class="p-4 border-b border-gray-800 bg-gray-950 font-bold text-xs text-white uppercase tracking-wider">Active Bundles Ledger</div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full border-collapse text-xs text-left">
+                            <thead>
+                                <tr class="bg-gray-900 text-gray-400 border-b border-gray-800 font-bold uppercase text-[10px]">
+                                    <th class="p-3 w-1/3">Combo Bundle Title / Asset Link</th>
+                                    <th class="p-3 w-24">Combo Price (GH₵)</th>
+                                    <th class="p-3">Included Content Description</th>
+                                    <th class="p-3 text-center">Action</th>
+                                </tr>
+                            </thead>
+                            <tbody id="admin-bundle-tbody" class="divide-y divide-gray-800/60"></tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <div class="block md:hidden mt-12 pt-6 border-t border-gray-800/60">
+            <button onclick="wipeAndResetAll()" class="w-full bg-red-950/20 text-red-400 hover:bg-red-950 border border-red-900/60 text-xs py-3 rounded-xl font-bold transition-all duration-200 active:scale-95">
+                Wipe & Reset System Data Engine
+            </button>
+        </div>
+    </main>
+
+    <script>
+        let DATA_PRODUCTS = [];
+        let DATA_BUNDLES = [];
+        let DATA_INFO = {};
+
+        const BASELINE_PRODUCTS = [
+            { id: 1, name: 'Premium Smoky Jollof Rice', price: 65.00, category: 'mains', desc: 'Authentic local party-style rich smoky jollof rice cooked to perfection with select spices.', img: 'https://images.unsplash.com/photo-1604328698692-f76ea9498e76?auto=format&fit=crop&w=600&q=80', options: ['Grilled Chicken Side', 'Fried Fish Companion', 'Spicy Grilled Pork'] },
+            { id: 2, name: 'Aromatic Fried Rice Special', price: 65.00, category: 'mains', desc: 'Wok-tossed seasoned rice packed with fresh bell peppers, sweet corn, veggies, and local aromatic oils.', img: 'https://images.unsplash.com/photo-1603133872878-684f208fb84b?auto=format&fit=crop&w=600&q=80', options: ['Crispy Chicken Wings', 'Shredded Beef Sauce', 'Spicy Gizzard Link'] },
+            { id: 9, name: 'Jollof with Chicken Thigh', price: 75.00, category: 'mains', desc: 'Generous serving of smoky party jollof served with your choice of savory chicken.', img: 'https://images.unsplash.com/photo-1604328698692-f76ea9498e76?auto=format&fit=crop&w=600&q=80', options: ['Premium Grilled Chicken', 'Crispy Deep-Fried Chicken'] },
+            { id: 10, name: 'Fried Rice with Chicken Thigh', price: 75.00, category: 'mains', desc: 'Savory wok-tossed fried rice served alongside juicy marinated chicken.', img: 'https://images.unsplash.com/photo-1603133872878-684f208fb84b?auto=format&fit=crop&w=600&q=80', options: ['Premium Grilled Chicken', 'Crispy Deep-Fried Chicken'] },
+            { id: 11, name: 'Plain Rice with Stew & Chicken', price: 70.00, category: 'mains', desc: 'Fragrant steamed white rice layered with deep local tomato-onion gravy and chicken cuts.', img: 'https://images.unsplash.com/photo-1512058564366-18510be2db19?auto=format&fit=crop&w=600&q=80', options: ['Premium Grilled Chicken', 'Crispy Deep-Fried Chicken'] },
+            { id: 12, name: 'Assorted Fried Rice Extra', price: 85.00, category: 'mains', desc: 'Premium luxury style fried rice wok-tossed with chopped beef chunks, shredded chicken bits, and eggs.', img: 'https://images.unsplash.com/photo-1569058242252-623df46b5025?auto=format&fit=crop&w=600&q=80', options: ['Extra Black Shito Shot', 'Green Chili Paste Slice'] },
+            { id: 13, name: 'Assorted Jollof Rice Extra', price: 85.00, category: 'mains', desc: 'Rich local party-style smoky jollof loaded and cooked together with beef cuts, chicken bits, and sausage links.', img: 'https://images.unsplash.com/photo-1604328698692-f76ea9498e76?auto=format&fit=crop&w=600&q=80', options: ['Fried Plantain Cuts', 'Creamy Coleslaw Cup'] },
+            { id: 14, name: 'Stir-Fry Noodles Savory Bowl', price: 55.00, category: 'mains', desc: 'Quick wok-tossed signature noodles mixed with colorful bell peppers, carrots, spring onions, and unique seasoning.', img: 'https://images.unsplash.com/photo-1585032226651-759b368d7246?auto=format&fit=crop&w=600&q=80', options: ['Add Fried Egg On Top', 'Shredded Chicken Shreds'] },
+            { id: 15, name: 'Aroni Rice Tray (Spaghetti-Rice Mix)', price: 70.00, category: 'mains', desc: 'The authentic local combination of golden toasted broken spaghetti and rice cooked together beautifully with spices.', img: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&q=80', options: ['Spicy Goat Meat Stew', 'Grilled Chicken Chunk'] },
+
+            { id: 3, name: 'Traditional Fufu Bowl', price: 75.00, category: 'local', desc: 'Freshly pounded soft plantain and cassava fufu served in a traditional bowl with rich soup.', img: 'https://images.unsplash.com/photo-1534422298391-e4f8c172dddb?auto=format&fit=crop&w=600&q=80', options: ['Goat Meat Light Soup', 'Fresh Groundnut Soup', 'Palm Nut Soup with Crab'] },
+            { id: 4, name: 'Boiled Yam & Garden Egg Stew', price: 55.00, category: 'local', desc: 'Soft-boiled tender white yam cuts paired with a heavily flavored, traditional local garden egg and palm oil stew.', img: 'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=600&q=80', options: ['Fried Fish Piece', 'Boiled Egg Add-on', 'Salted Fish (Kobi)'] },
+            { id: 5, name: 'Authentic Waakye Pack', price: 60.00, category: 'local', desc: 'Classic rice and beans cooked with native millet stalks. Complete with rich black shito, spaghetti (talia), and gari.', img: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&q=80', options: ['Wele Spec', 'Fried Meat', 'Boiled Egg'] },
+            { id: 8, name: 'Traditional Ga Kenkey Tray', price: 50.00, category: 'local', desc: 'Steamed corn dough wraps served with spicy red pepper sauce, deep black shito, and freshly fried fish or sardines.', img: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&q=80', options: ['Fried Fish Extra', 'Sardine Accompaniment', 'Fried Eggs'] },
+            { id: 16, name: 'Premium Fante Kenkey Combo', price: 50.00, category: 'local', desc: 'Traditional plantain leaf-wrapped smooth Fante Kenkey. Served complete with hot ground pepper blends and fish.', img: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&q=80', options: ['Spicy Red Pepper Paste', 'Deep Savory Black Shito', 'Mixed Red & Black Mash'] },
+
+            { id: 6, name: 'Kelewele Cubes', price: 25.00, category: 'sides', desc: 'Ripe plantain chunks seasoned beautifully with fresh ginger, native chili peppers, and deep-fried to golden perfection.', img: 'https://images.unsplash.com/photo-1573080496219-bb080dd4f877?auto=format&fit=crop&w=600&q=80', options: ['Roasted Peanuts Tray'] },
+            { id: 7, name: 'Chilled Hibiscus Sobolo Carafe', price: 20.00, category: 'sides', desc: 'Ice-cold homemade dried hibiscus flower extract heavily infused with spicy local ginger, cloves, and natural sweeteners.', img: 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&w=600&q=80', options: ['Extra Ginger Shot', 'Pineapple Infusion'] },
+            { id: 17, name: 'Spicy Yam Chips & Chicken', price: 55.00, category: 'sides', desc: 'Crispy deep-fried local white yam fingers dusted with spices and paired cleanly with crispy fried chicken wings.', img: 'https://images.unsplash.com/photo-1573080496219-bb080dd4f877?auto=format&fit=crop&w=600&q=80', options: ['Shito Dipping Bowl', 'Tomato Ketchup Squeeze'] },
+            { id: 18, name: 'Classic Tuna Salad Base', price: 45.00, category: 'sides', desc: 'Crisp shredded green lettuce, sweet corn, onions, hard-boiled egg rounds, and fine chunks of premium flaked tuna fish.', img: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&q=80', options: ['Creamy Salad Cream Dressing', 'Zesty Olive Oil Drizzle'] },
+            { id: 19, name: 'Traditional Cornbeef Salad Pack', price: 45.00, category: 'sides', desc: 'Hearty local vintage style salad featuring baked beans, crispy cabbage strings, tomatoes, and savory corned beef slices.', img: 'https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=600&q=80', options: ['Heinz Mayonnaise Blend', 'No Dressing Naked'] },
+            { id: 20, name: 'Standalone Grilled Tilapia Fish', price: 65.00, category: 'sides', desc: 'Whole fresh catch local tilapia heavily scored, rubbed with ginger garlic pepper paste, and open-flame charcoal grilled.', img: 'https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?auto=format&fit=crop&w=600&q=80', options: ['Diced Onion & Tomato Relish', 'Extra Hot Pepper Side'] },
+            { id: 21, name: 'Standalone Grilled Chicken Thigh', price: 35.00, category: 'sides', desc: 'Perfect single cut of premium chicken thigh slow roasted over smoke and glazed with house chili syrup.', img: 'https://images.unsplash.com/photo-1532550907401-a500c9a57435?auto=format&fit=crop&w=600&q=80', options: ['Spicy BBQ Brush', 'Original Dry Rub Spice'] },
+            { id: 22, name: 'Standalone Deep-Fried Chicken Wing', price: 30.00, category: 'sides', desc: 'Crispy golden batter-dipped seasoned chicken piece fried crunchy on the outside and moist inside.', img: 'https://images.unsplash.com/photo-1562967914-608f82629710?auto=format&fit=crop&w=600&q=80', options: ['Hot Shito Glaze', 'Plain Crisp Crust'] },
+            { id: 23, name: 'Pure Squeezed Orange Juice Glass', price: 20.00, category: 'sides', desc: '100% freshly pressed local sweet oranges served completely cold with zero added artificial sugar sugars.', img: 'https://images.unsplash.com/photo-1621506289937-a8e4df240d0b?auto=format&fit=crop&w=600&q=80', options: ['Ice Cubes Added', 'Straight No Ice Room'] },
+            { id: 24, name: 'Sweet Pineapple Juice Carafe', price: 20.00, category: 'sides', desc: 'Crushed sweet yellow sugar-loaf pineapples sourced locally from farms and strained into a crisp refreshing draft.', img: 'https://images.unsplash.com/photo-1550258987-190a2d41a8ba?auto=format&fit=crop&w=600&q=80', options: ['Ice Cubes Added', 'Straight No Ice Room'] },
+            { id: 25, name: 'Signature Pine-Orange Blend Mix', price: 25.00, category: 'sides', desc: 'The ultimate tropical combination half pure pineapple nectar and half orange reduction layered together seamlessly.', img: 'https://images.unsplash.com/photo-1497534446932-c925b458314e?auto=format&fit=crop&w=600&q=80', options: ['Fresh Mint Sprig Garnish'] },
+            { id: 26, name: 'Fiery Pine-Ginger Juice Cup', price: 25.00, category: 'sides', desc: 'Crushed pineapple pulp extracted alongside an extra strong hit of local organic spicy ginger root juice.', img: 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&w=600&q=80', options: ['Extra Hot Ginger Kick', 'Mild Balanced Zing'] },
+            { id: 27, name: 'Zesty Orange-Ginger Juice Cup', price: 25.00, category: 'sides', desc: 'Citrus notes of raw sweet orange juice energized with a sharp underlining accent of fresh crushed ginger root.', img: 'https://images.unsplash.com/photo-1621506289937-a8e4df240d0b?auto=format&fit=crop&w=600&q=80', options: ['Extra Hot Ginger Kick', 'Mild Balanced Zing'] },
+            { id: 28, name: 'Traditional Ice-Cold Asaana Draft', price: 20.00, category: 'sides', desc: 'Authentic local caramelized corn beer brew crafted beautifully from fermented corn grains and rich dark sugar syrup.', img: 'https://images.unsplash.com/photo-1513558161293-cdaf765ed2fd?auto=format&fit=crop&w=600&q=80', options: ['With Crunchy Ice Blocks'] },
+            { id: 29, name: 'Chilled Malta Guinness Can', price: 15.00, category: 'sides', desc: 'Premium rich non-alcoholic dark malt beverage packed completely with energy B-vitamins. Served frosty cold.', img: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&w=600&q=80', options: ['Pop Top Opened Can', 'Unopened Clean Can'] },
+            { id: 30, name: 'Classic Coca-Cola Pet Bottle', price: 12.00, category: 'sides', desc: 'The timeless classic bubbly carbonated soda beverage serving ultimate refreshment.', img: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&w=600&q=80', options: ['Ice Straw Glass Provided'] },
+            { id: 31, name: 'Crispy Sprite Pet Bottle', price: 12.00, category: 'sides', desc: 'Crisp clear lemon-lime refreshing soda pick-me-up drink served straight out of the freezer rack.', img: 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?auto=format&fit=crop&w=600&q=80', options: ['Ice Straw Glass Provided'] },
+            { id: 32, name: 'Premium Mineral Bottled Water', price: 8.00, category: 'sides', desc: 'Pure ozonated clear spring drinking water in a convenient chilled plastic re-sealable container.', img: 'https://images.unsplash.com/photo-1608885898957-a599fb1b4640?auto=format&fit=crop&w=600&q=80', options: ['Chilled Deep Freeze', 'Room Temperature Normal'] }
+        ];
+
+        const BASELINE_BUNDLES = [
+            { id: 101, name: 'SRC Mega Feast Combo', price: 195.00, desc: 'The ultimate group value pack. Includes 2 Large Plates of Jollof, 1 Generous Side of Spicy Kelewele, and 2 Bottles of Chilled Sobolo.', img: 'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=600&q=80' },
+            { id: 102, name: 'Twin Pack Friday Special', price: 120.00, desc: 'Double up on the favorites! 1 Plate of Smoky Jollof Rice paired cleanly with 1 Plate of Aromatic Fried Rice and a shared side dish.', img: 'https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=600&q=80' }
+        ];
+
+        const BASELINE_META = {
+            brandName: "Food2Suit", motto: "Everything Food", bannerTag: "Free Delivery over GH₵ 150",
+            heroTitle: "Authentic Meals, Made with Love", heroDesc: "From everyday lunches to unforgettable events, Food2Suit serves delicious meals with quality ingredients and care.",
+            email: "hello@food2suit.com", phone: "+233 50 123 4567", address: "East Legon, Accra, Ghana"
+        };
+
+        window.addEventListener('load', loadGlobalState);
+
+        function loadGlobalState() {
+            const rawProducts = localStorage.getItem('food2suit_registry_products');
+            const rawBundles = localStorage.getItem('food2suit_registry_bundles');
+            const rawMeta = localStorage.getItem('food2suit_registry_meta');
+
+            DATA_PRODUCTS = rawProducts ? JSON.parse(rawProducts) : BASELINE_PRODUCTS;
+            DATA_BUNDLES = rawBundles ? JSON.parse(rawBundles) : BASELINE_BUNDLES;
+            DATA_INFO = rawMeta ? JSON.parse(rawMeta) : BASELINE_META;
+
+            if(!rawProducts) localStorage.setItem('food2suit_registry_products', JSON.stringify(BASELINE_PRODUCTS));
+            if(!rawBundles) localStorage.setItem('food2suit_registry_bundles', JSON.stringify(BASELINE_BUNDLES));
+            if(!rawMeta) localStorage.setItem('food2suit_registry_meta', JSON.stringify(BASELINE_META));
+
+            hydrateFormInputs();
+            renderRegistryGridTable();
+            renderBundleRegistryTable();
+        }
+
+        // ANIMATED SINGLE-PAGE APPLICATION TAB ENGINE
+        function switchAdminTab(targetPanelId) {
+            const currentPanel = document.querySelector('.admin-panel:not(.hidden-frame)');
+            const nextPanel = document.getElementById(`panel-${targetPanelId}`);
+            
+            if (currentPanel && currentPanel.id !== `panel-${targetPanelId}`) {
+                // Step 1: Smoothly translate down and hide the current active frame
+                currentPanel.style.opacity = '0';
+                currentPanel.style.transform = 'translateY(-12px)';
+                
+                setTimeout(() => {
+                    currentPanel.classList.add('hidden-frame');
+                    
+                    // Step 2: Establish base hidden dimensions for incoming frame
+                    nextPanel.classList.remove('hidden-frame');
+                    nextPanel.style.opacity = '0';
+                    nextPanel.style.transform = 'translateY(16px)';
+                    
+                    // Force browser redraw pipeline
+                    nextPanel.offsetHeight; 
+                    
+                    // Step 3: Animate next panel up into full layout view
+                    nextPanel.style.opacity = '1';
+                    nextPanel.style.transform = 'translateY(0)';
+                }, 200);
+            }
+
+            // Step 4: Fluid navigation links highlight tracking modifications
+            document.querySelectorAll('.tab-link').forEach(link => {
+                link.classList.remove('bg-orange-600', 'text-white', 'scale-[1.02]', 'shadow-lg', 'shadow-orange-950/40');
+                link.classList.add('text-gray-400', 'hover:bg-gray-900', 'hover:text-white');
+            });
+
+            const activeTabButton = document.getElementById(`tab-btn-${targetPanelId}`);
+            activeTabButton.classList.remove('text-gray-400', 'hover:bg-gray-900', 'hover:text-white');
+            activeTabButton.classList.add('bg-orange-600', 'text-white', 'scale-[1.02]', 'shadow-lg', 'shadow-orange-950/40');
+        }
+
+        function hydrateFormInputs() {
+            document.getElementById('cfg-brand').value = DATA_INFO.brandName || '';
+            document.getElementById('cfg-motto').value = DATA_INFO.motto || '';
+            document.getElementById('cfg-banner').value = DATA_INFO.bannerTag || '';
+            document.getElementById('cfg-title').value = DATA_INFO.heroTitle || '';
+            document.getElementById('cfg-desc').value = DATA_INFO.heroDesc || '';
+            document.getElementById('cfg-phone').value = DATA_INFO.phone || '';
+            document.getElementById('cfg-email').value = DATA_INFO.email || '';
+            document.getElementById('cfg-address').value = DATA_INFO.address || '';
+        }
+
+        function renderRegistryGridTable() {
+            const tbody = document.getElementById('admin-tbody');
+            if(DATA_PRODUCTS.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-gray-500 italic">No products listed.</td></tr>`;
+                return;
+            }
+            tbody.innerHTML = DATA_PRODUCTS.map((p, index) => `
+                <tr class="ledger-row hover:bg-gray-900/30" style="animation-delay: ${index * 30}ms">
+                    <td class="p-2">
+                        <input type="text" value="${p.name}" onchange="mutateProduct(${p.id}, 'name', this.value)" class="w-full bg-transparent border-b border-transparent focus:border-orange-500 font-semibold outline-none text-white p-0.5 text-xs">
+                        <input type="text" value="${p.img}" onchange="mutateProduct(${p.id}, 'img', this.value)" class="w-full bg-transparent font-medium text-[10px] text-gray-500 border-b border-transparent focus:border-orange-500 outline-none mt-1">
+                    </td>
+                    <td class="p-2">
+                        <select onchange="mutateProduct(${p.id}, 'category', this.value)" class="bg-transparent text-gray-300 border border-transparent hover:border-gray-700 outline-none text-xs cursor-pointer">
+                            <option value="rice" ${(p.category === 'rice' || p.category === 'mains') ? 'selected' : ''}>Rice Dishes</option>
+                            <option value="local" ${p.category === 'local' ? 'selected' : ''}>Local Specialties</option>
+                            <option value="salads" ${(p.category === 'salads' || p.category === 'sides') ? 'selected' : ''}>Salads & Sides</option>
+                            <option value="drinks" ${p.category === 'drinks' ? 'selected' : ''}>Drinks</option>
+                            <option value="proteins" ${p.category === 'proteins' ? 'selected' : ''}>Proteins</option>
+                        </select>
+                    </td>
+                    <td class="p-2">
+                        <input type="number" step="0.01" value="${p.price}" onchange="mutateProduct(${p.id}, 'price', this.value)" class="w-full bg-transparent border-b border-transparent focus:border-orange-500 text-emerald-400 font-bold outline-none text-xs">
+                    </td>
+                    <td class="p-2">
+                        <input type="text" value="${p.options ? p.options.join(', ') : ''}" onchange="mutateProductOptions(${p.id}, this.value)" class="w-full bg-transparent border-b border-transparent focus:border-orange-500 text-gray-400 outline-none text-xs">
+                    </td>
+                    <td class="p-2 text-center"><input type="checkbox" ${p.featured ? 'checked' : ''} onchange="mutateProductFeatured(${p.id}, this.checked)" class="accent-orange-500 cursor-pointer" title="Pin this dish to the home-page featured section"></td>
+                    <td class="p-2 text-center">
+                        <button onclick="deleteProductItem(${p.id})" class="bg-red-950/40 hover:bg-red-900 text-red-400 border border-red-900 text-[11px] px-2.5 py-1 rounded-xl transition-all duration-200 active:scale-90">Delete</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function renderBundleRegistryTable() {
+            const tbody = document.getElementById('admin-bundle-tbody');
+            if(DATA_BUNDLES.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-gray-500 italic">No bundle configurations listed.</td></tr>`;
+                return;
+            }
+            tbody.innerHTML = DATA_BUNDLES.map((b, index) => `
+                <tr class="ledger-row hover:bg-gray-900/30" style="animation-delay: ${index * 40}ms">
+                    <td class="p-2">
+                        <input type="text" value="${b.name}" onchange="mutateBundle(${b.id}, 'name', this.value)" class="w-full bg-transparent border-b border-transparent focus:border-orange-500 font-semibold outline-none text-white p-0.5 text-xs">
+                        <input type="text" value="${b.img}" onchange="mutateBundle(${b.id}, 'img', this.value)" class="w-full bg-transparent font-medium text-[10px] text-gray-500 border-b border-transparent focus:border-orange-500 outline-none mt-1">
+                    </td>
+                    <td class="p-2">
+                        <input type="number" step="0.01" value="${b.price}" onchange="mutateBundle(${b.id}, 'price', this.value)" class="w-full bg-transparent border-b border-transparent focus:border-orange-500 text-emerald-400 font-bold outline-none text-xs">
+                    </td>
+                    <td class="p-2">
+                        <input type="text" value="${b.desc}" onchange="mutateBundle(${b.id}, 'desc', this.value)" class="w-full bg-transparent border-b border-transparent focus:border-orange-500 text-gray-400 outline-none text-xs">
+                    </td>
+                    <td class="p-2 text-center">
+                        <button onclick="deleteBundleItem(${b.id})" class="bg-red-950/40 hover:bg-red-900 text-red-400 border border-red-900 text-[11px] px-2.5 py-1 rounded-xl transition-all duration-200 active:scale-90">Delete</button>
+                    </td>
+                </tr>
+            `).join('');
+        }
+
+        function mutateProduct(id, field, value) {
+            const match = DATA_PRODUCTS.find(p => p.id === id);
+            if(match) {
+                match[field] = field === 'price' ? parseFloat(value) || 0 : value;
+                localStorage.setItem('food2suit_registry_products', JSON.stringify(DATA_PRODUCTS));
+            }
+        }
+
+        function mutateProductOptions(id, value) {
+            const match = DATA_PRODUCTS.find(p => p.id === id);
+            if(match) {
+                match.options = value.split(',').map(s => s.trim()).filter(s => s.length > 0);
+                localStorage.setItem('food2suit_registry_products', JSON.stringify(DATA_PRODUCTS));
+            }
+        }
+
+        function mutateProductFeatured(id, value) {
+            const match = DATA_PRODUCTS.find(p => p.id === id);
+            if(match) {
+                match.featured = value;
+                localStorage.setItem('food2suit_registry_products', JSON.stringify(DATA_PRODUCTS));
+            }
+        }
+
+        function deleteProductItem(id) {
+            if(confirm("Delete this menu item?")) {
+                DATA_PRODUCTS = DATA_PRODUCTS.filter(p => p.id !== id);
+                localStorage.setItem('food2suit_registry_products', JSON.stringify(DATA_PRODUCTS));
+                renderRegistryGridTable();
+            }
+        }
+
+        function handleCreateProduct(e) {
+            e.preventDefault();
+            const name = document.getElementById('p-name').value;
+            const price = parseFloat(document.getElementById('p-price').value) || 0;
+            const category = document.getElementById('p-category').value;
+            const img = document.getElementById('p-img').value;
+            const desc = document.getElementById('p-desc').value;
+            const rawOpts = document.getElementById('p-options').value;
+
+            const options = rawOpts.split(',').map(s => s.trim()).filter(s => s.length > 0);
+            const id = DATA_PRODUCTS.length ? Math.max(...DATA_PRODUCTS.map(p => p.id)) + 1 : 1;
+
+            DATA_PRODUCTS.push({ id, name, price, category, img, desc, options });
+            localStorage.setItem('food2suit_registry_products', JSON.stringify(DATA_PRODUCTS));
+            renderRegistryGridTable();
+            e.target.reset();
+        }
+
+        function mutateBundle(id, field, value) {
+            const match = DATA_BUNDLES.find(b => b.id === id);
+            if(match) {
+                match[field] = field === 'price' ? parseFloat(value) || 0 : value;
+                localStorage.setItem('food2suit_registry_bundles', JSON.stringify(DATA_BUNDLES));
+            }
+        }
+
+        function deleteBundleItem(id) {
+            if(confirm("Delete this combo bundle?")) {
+                DATA_BUNDLES = DATA_BUNDLES.filter(b => b.id !== id);
+                localStorage.setItem('food2suit_registry_bundles', JSON.stringify(DATA_BUNDLES));
+                renderBundleRegistryTable();
+            }
+        }
+
+        function handleCreateBundle(e) {
+            e.preventDefault();
+            const name = document.getElementById('b-name').value;
+            const price = parseFloat(document.getElementById('b-price').value) || 0;
+            const img = document.getElementById('b-img').value;
+            const type = document.getElementById('b-type').value;
+            const desc = document.getElementById('b-desc').value;
+
+            const id = DATA_BUNDLES.length ? Math.max(...DATA_BUNDLES.map(b => b.id)) + 1 : 101;
+            DATA_BUNDLES.push({ id, name, price, type, img, desc });
+            localStorage.setItem('food2suit_registry_bundles', JSON.stringify(DATA_BUNDLES));
+            renderBundleRegistryTable();
+            e.target.reset();
+        }
+
+        function handleSaveGlobalInfo(e) {
+            e.preventDefault();
+            DATA_INFO = {
+                brandName: document.getElementById('cfg-brand').value,
+                motto: document.getElementById('cfg-motto').value,
+                bannerTag: document.getElementById('cfg-banner').value,
+                heroTitle: document.getElementById('cfg-title').value,
+                heroDesc: document.getElementById('cfg-desc').value,
+                phone: document.getElementById('cfg-phone').value,
+                email: document.getElementById('cfg-email').value,
+                address: document.getElementById('cfg-address').value
+            };
+            localStorage.setItem('food2suit_registry_meta', JSON.stringify(DATA_INFO));
+            alert("Global settings saved and synchronized!");
+        }
+
+        function wipeAndResetAll() {
+            if(confirm("Wipe all custom structural changes and restore default baseline data?")) {
+                localStorage.clear();
+                loadGlobalState();
+                alert("Database engine metrics reset completed successfully.");
+                location.reload();
+            }
+        }
+    </script>
+</body>
+</html>
