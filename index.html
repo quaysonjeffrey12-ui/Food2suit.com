@@ -97,6 +97,8 @@ html {
         }
         #view-home section.relative button { transition: transform .2s ease, background-color .2s ease, color .2s ease, box-shadow .2s ease; }
         #view-home section.relative button:hover { background:#FF6B35; color:#fff; transform:scale(1.1); box-shadow:0 12px 26px rgba(255,107,53,.45); }
+        .home-category { transition: transform .22s ease, color .22s ease, box-shadow .22s ease; border-radius: 18px; }
+        .home-category:hover { transform: scale(1.08); color:#FF6B35; box-shadow:0 10px 22px rgba(255,107,53,.15); }
         #view-menu, #view-offers, #view-contact { display:none !important; }
     </style>
 </head>
@@ -117,13 +119,13 @@ html {
             </nav>
 
             <div class="flex items-center space-x-2">
-                <button onclick="toggleTheme()" class="p-2 text-gray-300 hover:text-[#FF6B35] rounded-xl transition-all hover:scale-110 active:scale-90 focus:outline-none">
+                <button onclick="Food2Suit.toggleTheme()" class="p-2 text-gray-300 hover:text-[#FF6B35] rounded-xl transition-all hover:scale-110 active:scale-90 focus:outline-none" aria-label="Switch color theme">
                     <svg id="theme-icon" xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 transition-transform duration-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
                     </svg>
                 </button>
 
-                <button onclick="toggleCart()" class="relative p-2 text-gray-300 hover:text-[#FF6B35] transition-colors focus:outline-none group">
+                <button onclick="Food2Suit.toggleCart()" class="relative p-2 text-gray-300 hover:text-[#FF6B35] transition-colors focus:outline-none group" aria-label="Open food tray">
                     <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 transform group-hover:rotate-12 transition-transform duration-200" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z" />
                     </svg>
@@ -156,13 +158,13 @@ html {
         <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 pb-12">
             <section id="view-home" class="view-section py-14 space-y-16">
                 <div class="-mt-24 relative z-30 bg-white dark:bg-gray-800 rounded-3xl shadow-xl border border-gray-100 dark:border-gray-700 p-5 md:p-7 grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-4 text-center">
-                    <button onclick="filterAndOpenMenu('rice')" class="font-bold text-sm text-gray-800 dark:text-white hover:text-[#FF6B35]">🍚<br><span class="text-xs">Rice Dishes</span></button>
-                    <button onclick="filterAndOpenMenu('local')" class="font-bold text-sm text-gray-800 dark:text-white hover:text-[#FF6B35]">🍲<br><span class="text-xs">Local Specialties</span></button>
-                    <button onclick="filterAndOpenMenu('salads')" class="font-bold text-sm text-gray-800 dark:text-white hover:text-[#FF6B35]">🥗<br><span class="text-xs">Salads & Sides</span></button>
-                    <button onclick="filterAndOpenMenu('drinks')" class="font-bold text-sm text-gray-800 dark:text-white hover:text-[#FF6B35]">🥤<br><span class="text-xs">Drinks</span></button>
-                    <button onclick="filterAndOpenMenu('proteins')" class="font-bold text-sm text-gray-800 dark:text-white hover:text-[#FF6B35]">🍗<br><span class="text-xs">Proteins</span></button>
-                    <button onclick="window.location.href='offers.html?filter=combo'" class="font-bold text-sm text-gray-800 dark:text-white hover:text-[#FF6B35]">🍱<br><span class="text-xs">Combo Meals</span></button>
-                    <button onclick="window.location.href='offers.html?filter=party'" class="font-bold text-sm text-gray-800 dark:text-white hover:text-[#FF6B35]">🎉<br><span class="text-xs">Party Trays</span></button>
+                    <button onclick="filterAndOpenMenu('rice')" class="home-category font-bold text-sm text-gray-800 dark:text-white hover:text-[#FF6B35]">🍚<br><span class="text-xs">Rice Dishes</span></button>
+                    <button onclick="filterAndOpenMenu('local')" class="home-category font-bold text-sm text-gray-800 dark:text-white hover:text-[#FF6B35]">🍲<br><span class="text-xs">Local Specialties</span></button>
+                    <button onclick="filterAndOpenMenu('salads')" class="home-category font-bold text-sm text-gray-800 dark:text-white hover:text-[#FF6B35]">🥗<br><span class="text-xs">Salads & Sides</span></button>
+                    <button onclick="filterAndOpenMenu('drinks')" class="home-category font-bold text-sm text-gray-800 dark:text-white hover:text-[#FF6B35]">🥤<br><span class="text-xs">Drinks</span></button>
+                    <button onclick="filterAndOpenMenu('proteins')" class="home-category font-bold text-sm text-gray-800 dark:text-white hover:text-[#FF6B35]">🍗<br><span class="text-xs">Proteins</span></button>
+                    <button onclick="window.location.href='offers.html?filter=combo'" class="home-category font-bold text-sm text-gray-800 dark:text-white hover:text-[#FF6B35]">🍱<br><span class="text-xs">Combo Meals</span></button>
+                    <button onclick="window.location.href='offers.html?filter=party'" class="home-category font-bold text-sm text-gray-800 dark:text-white hover:text-[#FF6B35]">🎉<br><span class="text-xs">Party Trays</span></button>
                 </div>
                 <div>
                     <div class="flex items-end justify-between gap-4 mb-6"><div><p class="text-[#FF6B35] text-xs font-bold uppercase tracking-wider mb-2">Popular picks</p><h2 class="text-3xl font-extrabold text-gray-950 dark:text-white">Featured Dishes</h2></div><button onclick="switchView('menu')" class="text-[#FF6B35] font-bold text-sm">View All Menu &rarr;</button></div>
@@ -308,10 +310,6 @@ html {
         </button>
     </div>
 
-    <footer class="w-full text-center py-4 text-xs text-gray-400 dark:text-gray-500 bg-white dark:bg-gray-950 border-t border-gray-100 dark:border-gray-800 transition-colors mt-auto hidden md:block">
-        &copy; 2026 Food2Suit. All rights reserved. Crafted to your taste.
-    </footer>
-
     <script>
         let PRODUCTS = [];
         let BUNDLES = [];
@@ -321,6 +319,7 @@ html {
         let isDarkMode = false;
         let activeModalProductId = null;
         let selectedOptionText = null;
+        let selectedOptionCost = 0;
 
         // Background Carousel Assets
         const HERO_IMAGES = [
@@ -546,7 +545,7 @@ html {
             if (!grid) return;
             const featured = [...PRODUCTS].sort((a, b) => featuredScore(b) - featuredScore(a)).slice(0, 4);
             grid.innerHTML = featured.map(product => `
-                <article class="bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl overflow-hidden shadow-sm hover:-translate-y-1 hover:shadow-lg transition-all"><img src="${product.img}" alt="${product.name}" class="w-full h-44 object-cover"><div class="p-4"><h3 class="font-bold text-sm text-gray-950 dark:text-white mb-2">${product.name}</h3><p class="text-xs text-gray-500 line-clamp-2 min-h-[2.5rem]">${product.desc}</p><div class="flex items-center justify-between mt-4"><span class="font-extrabold text-[#FF6B35]">GH₵ ${parseFloat(product.price).toFixed(2)}</span><button onclick="handleFeaturedClick(${product.id})" class="w-9 h-9 rounded-full bg-[#FF6B35] text-white font-bold text-xl hover:bg-[#e55a2b]">+</button></div></div></article>
+                <article class="group bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 rounded-2xl overflow-hidden shadow-sm hover:-translate-y-1 hover:shadow-lg transition-all"><div class="overflow-hidden"><img src="${product.img}" alt="${product.name}" class="w-full h-44 object-cover group-hover:scale-110 transition-transform duration-500"></div><div class="p-4"><h3 class="font-bold text-sm text-gray-950 dark:text-white mb-2">${product.name}</h3><p class="text-xs text-gray-500 line-clamp-2 min-h-[2.5rem]">${product.desc}</p><div class="flex items-center justify-between mt-4 gap-2"><span class="font-extrabold text-[#FF6B35]">GH₵ ${parseFloat(product.price).toFixed(2)}</span><button onclick="handleFeaturedClick(${product.id})" class="rounded-xl bg-[#FF6B35] text-white font-bold text-xs px-3 py-2 hover:bg-[#e55a2b]">+ Add to Tray</button></div></div></article>
             `).join('') || '<p class="text-gray-500 col-span-full">Featured dishes will appear here when dishes are added.</p>';
         }
 
@@ -623,17 +622,21 @@ html {
 
         function openOptionsModal(product) {
             activeModalProductId = product.id;
-            selectedOptionText = product.options[0]; 
+            const firstOption = typeof product.options[0] === 'string' ? { name: product.options[0], price: 5 } : product.options[0];
+            selectedOptionText = firstOption.name;
+            selectedOptionCost = Number(firstOption.price || 0);
             document.getElementById('modal-title').innerText = product.name;
             const container = document.getElementById('modal-options-container');
-            container.innerHTML = product.options.map((option, idx) => `
-                <button onclick="selectModalOption(this, '${option}')" class="option-choice-btn w-full flex items-center justify-between px-5 py-4 rounded-2xl border text-sm font-semibold transition-all ${idx === 0 ? 'border-[#FF6B35] bg-orange-50/50 dark:bg-orange-950/20 text-[#FF6B35]' : 'border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 text-gray-800 dark:text-gray-200'}">
-                    <span>${option}</span>
+            container.innerHTML = product.options.map((rawOption, idx) => {
+                const option = typeof rawOption === 'string' ? { name: rawOption, price: 5 } : rawOption;
+                return `
+                <button onclick='selectModalOption(this, ${JSON.stringify(option.name)}, ${Number(option.price || 0)})' class="option-choice-btn w-full flex items-center justify-between px-5 py-4 rounded-2xl border text-sm font-semibold transition-all ${idx === 0 ? 'border-[#FF6B35] bg-orange-50/50 dark:bg-orange-950/20 text-[#FF6B35]' : 'border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 text-gray-800 dark:text-gray-200'}">
+                    <span>${option.name}</span><span class="text-[#FF6B35] text-xs">+ GH₵ ${Number(option.price || 0).toFixed(2)}</span>
                     <span class="dot-indicator h-4 w-4 rounded-full border-2 flex items-center justify-center ${idx === 0 ? 'border-[#FF6B35]' : 'border-gray-300 dark:border-gray-600'}">
                         <span class="inner-dot h-2 w-2 rounded-full bg-[#FF6B35] ${idx === 0 ? 'block' : 'hidden'}"></span>
                     </span>
                 </button>
-            `).join('');
+            `}).join('');
             
             const modal = document.getElementById('options-modal');
             const box = document.getElementById('modal-box');
@@ -644,8 +647,9 @@ html {
             }, 10);
         }
 
-        function selectModalOption(element, val) {
+        function selectModalOption(element, val, cost) {
             selectedOptionText = val;
+            selectedOptionCost = Number(cost || 0);
             document.querySelectorAll('.option-choice-btn').forEach(btn => {
                 btn.classList.remove('border-[#FF6B35]', 'bg-orange-50/50', 'dark:bg-orange-950/20', 'text-[#FF6B35]');
                 btn.classList.add('border-gray-100', 'dark:border-gray-700', 'bg-gray-50', 'dark:bg-gray-900/50', 'text-gray-800', 'dark:text-gray-200');
@@ -670,12 +674,12 @@ html {
 
         function confirmModalOption() {
             if (activeModalProductId && selectedOptionText) {
-                executeAddToCart(activeModalProductId, PRODUCTS, selectedOptionText);
+                executeAddToCart(activeModalProductId, PRODUCTS, selectedOptionText, selectedOptionCost);
                 closeOptionsModal();
             }
         }
 
-        function executeAddToCart(id, sourcePool, finalOptionSpec) {
+        function executeAddToCart(id, sourcePool, finalOptionSpec, optionCost = 0) {
             const itemKey = finalOptionSpec ? `${id}-${finalOptionSpec}` : `${id}`;
             const existing = cart.find(item => item.cartUID === itemKey);
             if(existing) {
@@ -683,12 +687,12 @@ html {
             } else {
                 const targetObj = sourcePool.find(p => p.id === id);
                 const customName = finalOptionSpec ? `${targetObj.name} (${finalOptionSpec})` : targetObj.name;
-                cart.push({...targetObj, name: customName, cartUID: itemKey, qty: 1});
+                cart.push({...targetObj, name: customName, price: Number(targetObj.price) + Number(optionCost || 0), cartUID: itemKey, qty: 1});
             }
             if (sourcePool === PRODUCTS) recordEngagement(id, 'purchases');
             if (window.Food2Suit) {
                 const sharedItem = sourcePool.find(p => p.id === id);
-                if (sharedItem) Food2Suit.addToCart({ ...sharedItem, name: finalOptionSpec ? `${sharedItem.name} (${finalOptionSpec})` : sharedItem.name, option: finalOptionSpec || '' });
+                if (sharedItem) Food2Suit.addToCart({ ...sharedItem, name: finalOptionSpec ? `${sharedItem.name} (${finalOptionSpec})` : sharedItem.name, price: Number(sharedItem.price) + Number(optionCost || 0), option: finalOptionSpec || '' });
             }
             
             // Pop badge micro-interaction
