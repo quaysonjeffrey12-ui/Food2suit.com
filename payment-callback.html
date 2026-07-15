@@ -1,6 +1,47 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>Confirming payment | Food2Suit</title><script src="https://cdn.tailwindcss.com"></script><script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script><script src="supabase-client.js"></script></head>
-<body class="min-h-screen grid place-items-center bg-slate-950 p-5 text-white"><main class="w-full max-w-md rounded-3xl bg-slate-900 p-8 text-center shadow-2xl"><p class="text-xs font-bold uppercase tracking-widest text-orange-400">Food2Suit payment</p><h1 class="mt-3 text-2xl font-extrabold">Confirming your payment…</h1><p id="message" class="mt-4 text-sm leading-6 text-slate-300">Please wait while we securely check Paystack’s response.</p><a id="track-link" class="mt-6 hidden rounded-xl bg-orange-500 px-5 py-3 text-sm font-bold text-white" href="track-order.html">Track your order</a><a href="checkout.html" class="mt-5 block text-sm font-bold text-orange-300">Return to checkout</a></main><script>
-const message = document.getElementById('message'); const reference = new URLSearchParams(location.search).get('reference');
-(async () => { if (!reference) { message.textContent = 'No payment reference was supplied. Please return to checkout and try again.'; return; } try { const { data, error } = await Food2SuitDB.client.functions.invoke('food2suit-paystack', { body: { action: 'verify', reference } }); if (error) throw error; if (!data?.paid) { message.textContent = data?.message || 'Payment has not been completed yet.'; return; } localStorage.setItem('food2suit_cart', '[]'); message.textContent = 'Payment received. Your order is pending confirmation by Food2Suit.'; const link = document.getElementById('track-link'); link.href = `track-order.html?order=${encodeURIComponent(data.order_id)}`; link.classList.remove('hidden'); } catch (_) { message.textContent = 'We could not confirm the payment yet. If you completed it, please wait a moment and refresh this page.'; } })();
-</script></body></html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Confirming payment | Food2Suit</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-client.js"></script>
+</head>
+<body class="min-h-screen grid place-items-center bg-slate-950 p-5 text-white">
+  <main class="w-full max-w-md rounded-3xl bg-slate-900 p-8 text-center shadow-2xl">
+    <p class="text-xs font-bold uppercase tracking-widest text-orange-400">Food2Suit payment</p>
+    <h1 class="mt-3 text-2xl font-extrabold">Confirming your payment…</h1>
+    <p id="message" class="mt-4 text-sm leading-6 text-slate-300">Please wait while we securely check Paystack’s response.</p>
+    <a href="index.html" class="mt-5 block text-sm font-bold text-orange-300">Return to homepage</a>
+  </main>
+  <script>
+    const message = document.getElementById('message');
+    const reference = new URLSearchParams(location.search).get('reference');
+
+    (async () => {
+      if (!reference) {
+        message.textContent = 'No payment reference was supplied. Please return to checkout and try again.';
+        return;
+      }
+
+      try {
+        const { data, error } = await Food2SuitDB.client.functions.invoke('food2suit-paystack', {
+          body: { action: 'verify', reference }
+        });
+        if (error) throw error;
+        if (!data?.paid) {
+          message.textContent = data?.message || 'Payment has not been completed yet.';
+          return;
+        }
+
+        localStorage.setItem('food2suit_cart', '[]');
+        message.textContent = 'Payment received. Taking you back to the homepage…';
+        setTimeout(() => location.replace('index.html?payment=success'), 1400);
+      } catch (_) {
+        message.textContent = 'We could not confirm the payment yet. If you completed it, please wait a moment and refresh this page.';
+      }
+    })();
+  </script>
+</body>
+</html>
