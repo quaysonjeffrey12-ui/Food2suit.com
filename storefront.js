@@ -32,20 +32,49 @@
     saveCart(cart); renderCart();
   }
 
+  function openCheckout() {
+    if (!getCart().length) return alert('Your tray is empty.');
+    if (!location.pathname.endsWith('/checkout.html')) location.href = 'checkout.html';
+  }
+  async function submitCheckout(event) {
+    event.preventDefault();
+    const cart = getCart(), form = event.target, button = form.querySelector('button[type="submit"]');
+    const total = cart.reduce((sum, item) => sum + Number(item.price) * item.qty, 0);
+    button.disabled = true; button.textContent = 'Placing order…';
+    try {
+      const values = Object.fromEntries(new FormData(form).entries());
+      const { data: order, error } = await window.Food2SuitDB.client.from('orders').insert({ customer_name: values.name, phone: values.phone, email: values.email || null, delivery_address: values.address, notes: values.notes || null, total }).select('id').single();
+      if (error) throw error;
+      const { error: itemsError } = await window.Food2SuitDB.client.from('order_items').insert(cart.map(item => ({ order_id: order.id, product_name: item.name, unit_price: Number(item.price), quantity: item.qty, selected_options: item.option ? [{ name: item.option }] : [] })));
+      if (itemsError) throw itemsError;
+      saveCart([]); renderCart(); form.reset(); document.getElementById('sf-checkout').classList.remove('open'); alert('Order received! Food2Suit will contact you shortly.');
+    } catch (_) { alert('We could not place your order yet. Please try again.'); }
+    finally { button.disabled = false; button.textContent = 'Place order'; }
+  }
+
   function closeCustomizer() { document.getElementById('sf-customizer')?.classList.remove('open'); }
   function addProduct(product) {
     const options = (product.options || []).map(optionData);
     if (!options.length) return addToCart(product);
     const modal = document.getElementById('sf-customizer');
+    document.getElementById('sf-customizer-image').src = product.img || product.image_url || '';
+    document.getElementById('sf-customizer-image').alt = product.name;
     document.getElementById('sf-customizer-title').textContent = product.name;
     document.getElementById('sf-customizer-base').textContent = `Base price: ${money(product.price)}`;
     const choices = document.getElementById('sf-customizer-options');
     choices.innerHTML = `<label class="sf-option active"><input type="radio" name="sf-side" value="-1" checked><span><b>No extra side</b><small>Keep it as served</small></span><strong>Included</strong></label>` + options.map((side, i) => `<label class="sf-option"><input type="radio" name="sf-side" value="${i}"><span><b>${side.name}</b><small>Added to your dish</small></span><strong>+ ${money(side.price)}</strong></label>`).join('');
     choices.querySelectorAll('.sf-option').forEach(label => label.addEventListener('change', () => choices.querySelectorAll('.sf-option').forEach(x => x.classList.toggle('active', x.querySelector('input').checked))));
+    if (!document.getElementById('sf-customizer-quantity')) {
+      document.getElementById('sf-customizer-confirm').insertAdjacentHTML('beforebegin', '<div class="sf-quantity"><button id="sf-customizer-minus" type="button" aria-label="Reduce quantity">−</button><b id="sf-customizer-quantity">1</b><button id="sf-customizer-plus" type="button" aria-label="Increase quantity">+</button></div>');
+    }
+    let quantity = 1;
+    const quantityValue = document.getElementById('sf-customizer-quantity');
+    document.getElementById('sf-customizer-minus').onclick = () => { quantity = Math.max(1, quantity - 1); quantityValue.textContent = quantity; };
+    document.getElementById('sf-customizer-plus').onclick = () => { quantity += 1; quantityValue.textContent = quantity; };
     document.getElementById('sf-customizer-confirm').onclick = () => {
       const chosen = Number(choices.querySelector('input:checked').value);
       const side = chosen >= 0 ? options[chosen] : null;
-      addToCart({ ...product, name: side ? `${product.name} — ${side.name}` : product.name, price: Number(product.price) + (side?.price || 0), option: side?.name || '' });
+      addToCart({ ...product, name: side ? `${product.name} — ${side.name}` : product.name, price: Number(product.price) + (side?.price || 0), option: side?.name || '', qty: quantity });
       closeCustomizer();
     };
     modal.classList.add('open');
@@ -79,14 +108,28 @@
     if (!homeExtras || document.getElementById('sf-review-form')) return;
     homeExtras.insertAdjacentHTML('beforeend', `<section class="sf-review-form-wrap"><div><p class="sf-kicker">Share your experience</p><h2>Enjoyed your Food2Suit meal?</h2><p>Leave a short review for other customers.</p></div><form id="sf-review-form"><input id="sf-review-name" required maxlength="40" placeholder="Your name"><select id="sf-review-rating" aria-label="Rating"><option value="5">★★★★★ — 5 stars</option><option value="4">★★★★☆ — 4 stars</option><option value="3">★★★☆☆ — 3 stars</option></select><textarea id="sf-review-message" required maxlength="220" placeholder="Tell us about your meal"></textarea><button>Post review</button></form><div id="sf-user-reviews" class="sf-user-reviews"></div></section>`);
     const reviewKey = 'food2suit_customer_reviews';
-    const renderReviews = () => {
-      const reviews = JSON.parse(localStorage.getItem(reviewKey) || '[]');
+    const renderReviews = async () => {
+      let reviews = JSON.parse(localStorage.getItem(reviewKey) || '[]');
+      try {
+        if (window.Food2SuitDB?.enabled) reviews = (await window.Food2SuitDB.approvedReviews()).map(review => ({ name: review.customer_name, rating: review.rating, message: review.message }));
+      } catch (_) { /* The local display remains available when offline. */ }
       document.getElementById('sf-user-reviews').innerHTML = reviews.slice(-3).reverse().map(review => `<article><b>${'★'.repeat(review.rating)}<span>${'★'.repeat(5 - review.rating)}</span></b><p>“${review.message.replace(/[<>&]/g, '')}”</p><small>— ${review.name.replace(/[<>&]/g, '')}</small></article>`).join('');
     };
-    document.getElementById('sf-review-form').addEventListener('submit', event => {
+    document.getElementById('sf-review-form').addEventListener('submit', async event => {
       event.preventDefault();
+      const review = { name: document.getElementById('sf-review-name').value.trim(), rating: Number(document.getElementById('sf-review-rating').value), message: document.getElementById('sf-review-message').value.trim() };
+      const button = event.target.querySelector('button[type="submit"], button:not([type])');
+      if (window.Food2SuitDB?.enabled) {
+        button.disabled = true; button.textContent = 'Sending…';
+        try {
+          await window.Food2SuitDB.submitReview(review);
+          event.target.reset(); button.textContent = 'Submitted for approval';
+          setTimeout(() => { button.disabled = false; button.textContent = 'Post review'; }, 2200);
+          return;
+        } catch (_) { button.disabled = false; button.textContent = 'Post review'; }
+      }
       const reviews = JSON.parse(localStorage.getItem(reviewKey) || '[]');
-      reviews.push({ name: document.getElementById('sf-review-name').value.trim(), rating: Number(document.getElementById('sf-review-rating').value), message: document.getElementById('sf-review-message').value.trim() });
+      reviews.push(review);
       localStorage.setItem(reviewKey, JSON.stringify(reviews)); event.target.reset(); renderReviews();
     });
     renderReviews();
@@ -151,6 +194,8 @@
   window.Food2Suit = {
     addToCart,
     addProduct,
+    checkout: openCheckout,
+    submitCheckout,
     formatMoney: money,
     normalizeOption: optionData,
     changeQty(cartId, delta) { const cart = getCart(); const item = cart.find(entry => entry.cartId === cartId); if (item) item.qty += delta; saveCart(cart.filter(entry => entry.qty > 0)); renderCart(); },
@@ -164,7 +209,8 @@
     if (!document.querySelector('link[href="guarantee.css"]')) document.head.insertAdjacentHTML('beforeend', '<link rel="stylesheet" href="guarantee.css">');
     applyTheme(); ensureHeaderControls(); addHomeSections(); addGuaranteeSection(); addReviewForm(); upgradeReviewForm(); addFooter(); upgradeFooter(); applySharedContent(); addMobileNavigation(); makeFooterAnchorsWork();
     if (location.pathname.endsWith('/offers.html')) document.body.classList.add('sf-offers');
-    document.body.insertAdjacentHTML('beforeend', `<aside id="sf-cart-drawer" aria-label="Food tray"><div class="sf-cart-head"><b>Your Food Tray</b><button onclick="Food2Suit.toggleCart()" aria-label="Close tray">×</button></div><div id="sf-cart-items"></div><div class="sf-cart-foot"><span>Total</span><b id="sf-cart-total">GH₵ 0.00</b><button onclick="alert('Checkout is coming soon.')">Checkout</button></div></aside><div id="sf-customizer" role="dialog" aria-modal="true"><div class="sf-customizer-backdrop" onclick="document.getElementById('sf-customizer').classList.remove('open')"></div><div class="sf-customizer-box"><button class="sf-modal-close" onclick="document.getElementById('sf-customizer').classList.remove('open')" aria-label="Close">×</button><p class="sf-kicker">Make it yours</p><h2 id="sf-customizer-title"></h2><p id="sf-customizer-base"></p><div id="sf-customizer-options"></div><button id="sf-customizer-confirm" class="sf-confirm">Add to tray</button></div></div>`);
+    document.body.insertAdjacentHTML('beforeend', `<aside id="sf-cart-drawer" aria-label="Food tray"><div class="sf-cart-head"><b>Your Food Tray</b><button onclick="Food2Suit.toggleCart()" aria-label="Close">×</button></div><div id="sf-cart-items"></div><div class="sf-cart-foot"><span>Total</span><b id="sf-cart-total">GH₵ 0.00</b><button onclick="Food2Suit.checkout()">Checkout</button></div></aside><div id="sf-customizer" role="dialog" aria-modal="true"><div class="sf-customizer-backdrop" onclick="document.getElementById('sf-customizer').classList.remove('open')"></div><div class="sf-customizer-box"><button class="sf-modal-close" onclick="document.getElementById('sf-customizer').classList.remove('open')" aria-label="Close">×</button><div class="sf-customizer-layout"><div class="sf-customizer-media"><img id="sf-customizer-image" alt="Selected dish"></div><div><p class="sf-kicker">Make it yours</p><h2 id="sf-customizer-title"></h2><p id="sf-customizer-base"></p><div id="sf-customizer-options"></div><button id="sf-customizer-confirm" class="sf-confirm">Add to tray</button></div></div></div></div>`);
     renderCart();
+    document.querySelector('#sf-cart-drawer .sf-cart-foot button').onclick = openCheckout;
   });
 })();

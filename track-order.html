@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Track your order | Food2Suit</title>
+  <style>
+    :root{color-scheme:light;font-family:Inter,Arial,sans-serif;background:#f7f7f8;color:#182033}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at top right,#ffe5d9,transparent 30rem),#f7f7f8}.top{background:#111827;color:#fff;padding:20px max(5vw,24px);display:flex;justify-content:space-between;align-items:center}.brand{font-size:1.35rem;font-weight:800;color:#ff6b35}.brand small{display:block;color:#fff;font-size:.68rem;font-weight:500}.top a{color:#fff;text-decoration:none;font-weight:700}.shell{max-width:860px;margin:54px auto;padding:0 20px}.eyebrow{color:#ff6b35;text-transform:uppercase;letter-spacing:.12em;font-size:.72rem;font-weight:800}.card{background:#fff;border:1px solid #e5e7eb;border-radius:24px;padding:32px;box-shadow:0 18px 50px #17203312}.status{display:inline-flex;align-items:center;gap:8px;padding:9px 13px;background:#fff0eb;color:#d94816;border-radius:999px;font-size:.85rem;font-weight:800}.dot{width:9px;height:9px;background:#ff6b35;border-radius:50%;animation:pulse 1.3s infinite}.muted{color:#677083}.timeline{display:grid;gap:0;margin:30px 0}.step{display:flex;gap:15px;min-height:62px;color:#9ca3af}.marker{width:24px;display:flex;flex-direction:column;align-items:center}.circle{width:19px;height:19px;border:2px solid #d1d5db;border-radius:50%;background:#fff}.line{height:100%;width:2px;background:#e5e7eb}.step:last-child .line{display:none}.step.active{color:#182033;font-weight:700}.step.active .circle{border-color:#ff6b35;background:#ff6b35;box-shadow:0 0 0 5px #fff0eb}.step.done .circle{border-color:#ff6b35;background:#ff6b35}.step.done .circle:after{content:'✓';font-size:12px;color:#fff;display:block;text-align:center;line-height:15px}.items{padding:18px;background:#f9fafb;border-radius:16px}.item{display:flex;justify-content:space-between;gap:15px;padding:9px 0;border-bottom:1px solid #e5e7eb}.item:last-child{border:0}.error{background:#fff0f0;border-color:#fecaca;color:#991b1b}.hidden{display:none}@keyframes pulse{50%{transform:scale(1.5);opacity:.45}}@media(max-width:560px){.card{padding:24px}.shell{margin:30px auto}.top{padding:16px 20px}}
+  </style>
+</head>
+<body>
+  <header class="top"><div class="brand">Food2Suit <small>Everything Food</small></div><a href="index.html">Back home</a></header>
+  <main class="shell">
+    <p class="eyebrow">Order tracking</p>
+    <section class="card" id="tracker"><span class="status"><span class="dot"></span>Checking your order</span><h1>Finding your Food2Suit order…</h1><p class="muted">This page refreshes automatically while your order is in progress.</p></section>
+  </main>
+  <script>
+    const endpoint = 'https://rvdtrrttggrzdafxytdm.supabase.co/functions/v1/food2suit-order-tracking';
+    const key = 'sb_publishable_bv4UvAUGQDTeBumNkUU3KA_3UzfgQUC';
+    const labels = { pending:'Order received', confirmed:'Order confirmed', preparing:'Preparing your order', looking_for_rider:'Looking for a rider', out_for_delivery:'Out for delivery', completed:'Order complete', cancelled:'Order cancelled' };
+    const card = document.getElementById('tracker');
+    const orderId = new URLSearchParams(location.search).get('order');
+    const escapeHtml = value => String(value ?? '').replace(/[&<>"']/g, char => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[char]));
+    function showError(message){card.classList.add('error');card.innerHTML=`<h1>We couldn’t find that order</h1><p>${escapeHtml(message)}</p><p><a href="index.html">Return to Food2Suit</a></p>`;}
+    function render(order){const delivery = order.delivery;const steps = delivery ? ['pending','confirmed','preparing','looking_for_rider','out_for_delivery','completed'] : ['pending','confirmed','preparing','completed'];const currentIndex=steps.indexOf(order.status);const timeline=order.status==='cancelled'?`<div class="step active"><div class="marker"><i class="circle"></i></div><div><strong>Order cancelled</strong><p class="muted">Please contact Food2Suit if you need help with this order.</p></div></div>`:steps.map((step,index)=>`<div class="step ${index<currentIndex?'done':index===currentIndex?'active':''}"><div class="marker"><i class="circle"></i><i class="line"></i></div><div><strong>${labels[step]}</strong><p class="muted">${index===currentIndex?'Current order status':''}</p></div></div>`).join('');const items=(order.items||[]).map(item=>`<div class="item"><span>${escapeHtml(item.quantity)}× ${escapeHtml(item.name)}${item.side?` <small class="muted">(${escapeHtml(item.side)})</small>`:''}</span></div>`).join('');card.classList.remove('error');card.innerHTML=`<span class="status"><span class="dot"></span>${escapeHtml(labels[order.status]||'Order update')}</span><h1>Order #${escapeHtml(order.reference)}</h1><p class="muted">Placed ${new Date(order.created_at).toLocaleString()} · ${delivery?'Delivery':'Pickup'}</p><div class="timeline">${timeline}</div><div class="items"><strong>Your order</strong>${items || '<p class="muted">Order details are being prepared.</p>'}</div>`;}
+    async function load(){if(!orderId)return showError('Use the personal tracking link in your confirmation email.');try{const response=await fetch(`${endpoint}?order=${encodeURIComponent(orderId)}`,{headers:{Authorization:`Bearer ${key}`,apikey:key}});const body=await response.json();if(!response.ok)throw new Error(body.error||'This link is no longer available.');render(body);}catch(error){showError(error.message||'Please try again shortly.');}}
+    load();setInterval(load,15000);
+  </script>
+</body>
+</html>

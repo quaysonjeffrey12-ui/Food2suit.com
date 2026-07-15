@@ -5,6 +5,9 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Food2Suit Management Console</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="supabase-client.js"></script>
+    <script src="admin-auth.js"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <style>
         body { font-family: 'Plus Jakarta Sans', sans-serif; }
@@ -31,6 +34,7 @@
         input, textarea, select {
             transition: all 0.2s ease-in-out;
         }
+        .dish-description { resize: none; overflow: hidden; min-height: 76px; }
 
         /* Custom row fade-in for dynamic tables */
         @keyframes fadeInRow {
@@ -40,6 +44,15 @@
         tr.ledger-row {
             animation: fadeInRow 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards;
         }
+
+        /* Dish management workspace */
+        .dish-workspace { background: radial-gradient(circle at top right, rgba(249,115,22,.13), transparent 34%); }
+        .dish-creator { position: sticky; top: 24px; border-color: rgba(249,115,22,.32) !important; box-shadow: 0 20px 45px rgba(0,0,0,.28), inset 0 1px rgba(255,255,255,.03); }
+        .dish-library { border-color: rgba(255,255,255,.11) !important; box-shadow: 0 20px 45px rgba(0,0,0,.22); }
+        .dish-library thead { position: sticky; top: 0; z-index: 2; }
+        .dish-library tbody tr { transition: background .2s ease, transform .2s ease; }
+        .dish-library tbody tr:hover { background: rgba(249,115,22,.08) !important; }
+        .dish-library input:focus, .dish-library select:focus { background: #111827; border-color: #fb923c !important; border-radius: 8px; padding: 6px; }
     </style>
 </head>
 <body class="bg-gray-900 text-gray-100 antialiased min-h-screen flex flex-col md:flex-row">
@@ -60,6 +73,7 @@
             <button onclick="switchAdminTab('combos')" id="tab-btn-combos" class="tab-link w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all duration-300 text-gray-400 hover:bg-gray-900 hover:text-white whitespace-nowrap">
                 📦 Combos & Bundles
             </button>
+            <button onclick="switchAdminTab('orders');renderOrders()" id="tab-btn-orders" class="tab-link w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all duration-300 text-gray-400 hover:bg-gray-900 hover:text-white whitespace-nowrap">Orders</button>
         </nav>
 
         <div class="p-4 border-t border-gray-800/60 hidden md:block">
@@ -123,15 +137,20 @@
             </form>
         </section>
 
-        <section id="panel-dishes" class="admin-panel space-y-8 hidden-frame">
-            <div class="border-b border-gray-800 pb-4">
-                <h2 class="text-xl font-bold text-white tracking-tight">Menu Dish Deployment Deck</h2>
-                <p class="text-xs text-gray-400 mt-1">Create, edit, classify, and delete individual meals listed on the public dynamic storefront card deck.</p>
+        <section id="panel-dishes" class="admin-panel dish-workspace space-y-8 hidden-frame">
+            <div class="border-b border-gray-800 pb-4 flex items-end justify-between gap-4">
+              <div>
+                <p class="text-orange-400 text-[10px] font-bold uppercase tracking-[.18em] mb-2">Menu management</p>
+                <h2 class="text-2xl font-bold text-white tracking-tight">Dish management</h2>
+                <p class="text-xs text-gray-400 mt-1">Add a dish, edit its live details, set optional sides, and choose what appears as a featured pick.</p>
+              </div>
+              <div class="flex gap-2"><button type="button" onclick="publishStorefrontChanges()" class="shrink-0 rounded-xl border border-emerald-700 bg-emerald-950/40 px-4 py-2.5 text-sm font-bold text-emerald-300">Publish changes</button><button type="button" onclick="document.getElementById('new-dish-form').classList.toggle('hidden')" class="shrink-0 rounded-xl bg-orange-600 hover:bg-orange-700 px-4 py-2.5 text-sm font-bold text-white">+ Add dish</button></div>
             </div>
             
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8 items-start">
-                <form onsubmit="handleCreateProduct(event)" class="bg-gray-950 border border-gray-800 rounded-3xl p-5 space-y-3.5 shadow-xl shadow-black/40">
-                    <h3 class="text-xs font-bold text-orange-500 uppercase tracking-wider mb-2">Deploy New Recipe</h3>
+            <div class="grid grid-cols-1 gap-6 items-start">
+                <form id="new-dish-form" onsubmit="handleCreateProduct(event)" class="hidden dish-creator max-w-xl bg-gray-950 border border-gray-800 rounded-3xl p-5 space-y-3.5 shadow-xl shadow-black/40">
+                    <h3 class="text-sm font-bold text-white mb-1">Add a new dish</h3>
+                    <p class="text-[11px] text-gray-500 -mt-2 mb-3">Changes are synchronized to the storefront.</p>
                     <div>
                         <label class="block text-[10px] font-bold text-gray-400 uppercase mb-0.5">Dish Title</label>
                         <input type="text" id="p-name" required placeholder="e.g. Premium Kenkey Basket" class="w-full bg-gray-900 border border-gray-700 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10">
@@ -154,7 +173,8 @@
                     </div>
                     <div>
                         <label class="block text-[10px] font-bold text-gray-400 uppercase mb-0.5">Sides & extra prices</label>
-                        <input type="text" id="p-options" placeholder="Grilled Chicken|15, Fried Fish|18" class="w-full bg-gray-900 border border-gray-700 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10">
+                        <div id="new-side-rows" class="space-y-2"></div>
+                        <button type="button" onclick="addNewSideRow()" class="mt-2 text-xs font-bold text-orange-400 hover:text-orange-300">+ Add optional side</button>
                     </div>
                     <div>
                         <label class="block text-[10px] font-bold text-gray-400 uppercase mb-0.5">Image Directory Path / URL</label>
@@ -164,26 +184,12 @@
                         <label class="block text-[10px] font-bold text-gray-400 uppercase mb-0.5">Description Context</label>
                         <textarea id="p-desc" rows="2" required placeholder="Describe configuration, heat levels, portions..." class="w-full bg-gray-900 border border-gray-700 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10"></textarea>
                     </div>
-                    <button type="submit" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-2.5 rounded-xl text-xs transition-all duration-300 hover:scale-[1.02] active:scale-95 mt-2 shadow-md shadow-orange-950/40">Deploy Dish to Matrix</button>
+                    <button type="submit" class="w-full bg-orange-600 hover:bg-orange-700 text-white font-bold py-2.5 rounded-xl text-xs transition-all duration-300 hover:scale-[1.02] active:scale-95 mt-2 shadow-md shadow-orange-950/40">Add dish to menu</button>
                 </form>
 
-                <div class="lg:col-span-2 bg-gray-950 border border-gray-800 rounded-3xl overflow-hidden shadow-xl shadow-black/40">
-                    <div class="p-4 border-b border-gray-800 bg-gray-950 font-bold text-xs text-white uppercase tracking-wider">Active Dishes Ledger</div>
-                    <div class="overflow-x-auto">
-                        <table class="w-full border-collapse text-xs text-left">
-                            <thead>
-                                <tr class="bg-gray-900 text-gray-400 border-b border-gray-800 font-bold uppercase text-[10px]">
-                                    <th class="p-3 w-1/3">Dish Title / Asset Link</th>
-                                    <th class="p-3">Section</th>
-                                    <th class="p-3 w-20">Price (GH₵)</th>
-                                    <th class="p-3">Sides & extras (name|price)</th>
-                                    <th class="p-3 text-center">Feature</th>
-                                    <th class="p-3 text-center">Action</th>
-                                </tr>
-                            </thead>
-                            <tbody id="admin-tbody" class="divide-y divide-gray-800/60"></tbody>
-                        </table>
-                    </div>
+                <div class="dish-library bg-gray-950 border border-gray-800 rounded-3xl overflow-hidden shadow-xl shadow-black/40">
+                    <div class="p-5 border-b border-gray-800 bg-gray-950"><p class="font-bold text-sm text-white">Live menu</p><p class="text-[11px] text-gray-500 mt-1">Edit a field directly; it is saved automatically.</p></div>
+                    <div id="admin-tbody" class="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-3 gap-px bg-gray-800"></div>
                 </div>
             </div>
         </section>
@@ -234,6 +240,12 @@
                     </div>
                 </div>
             </div>
+        </section>
+
+        <section id="panel-orders" class="admin-panel space-y-7 hidden-frame">
+            <div class="border-b border-gray-800 pb-4"><h2 class="text-xl font-bold text-white tracking-tight">Orders Ledger</h2><p class="text-xs text-gray-400 mt-1">Track new, pending and completed orders with recorded dates and times.</p></div>
+            <div id="order-summary" class="grid grid-cols-1 sm:grid-cols-3 gap-4"></div>
+            <div class="bg-gray-950 border border-gray-800 rounded-3xl overflow-hidden shadow-xl shadow-black/40"><div class="p-4 border-b border-gray-800 font-bold text-xs text-white uppercase tracking-wider">Order records</div><div class="overflow-x-auto"><table class="w-full border-collapse text-xs text-left"><thead><tr class="bg-gray-900 text-gray-400 border-b border-gray-800 font-bold uppercase text-[10px]"><th class="p-3">Date & time</th><th class="p-3">Customer</th><th class="p-3 min-w-[250px]">Order details</th><th class="p-3">Total</th><th class="p-3">Status</th></tr></thead><tbody id="orders-tbody" class="divide-y divide-gray-800/60"></tbody></table></div></div>
         </section>
 
         <div class="block md:hidden mt-12 pt-6 border-t border-gray-800/60">
@@ -297,7 +309,112 @@
             whatsapp: "233501234567", about: "From everyday meals to celebrations, Food2Suit brings trusted local flavour, quality ingredients, and warm service to every order."
         };
 
-        window.addEventListener('load', loadGlobalState);
+        const cloudCategory = category => ({ traditional: 'local', local: 'local', salads: 'salads_sides', sides: 'drinks', drinks: 'drinks', proteins: 'proteins', rice: 'rice' })[category] || 'local';
+        const browserCategory = category => ({ salads_sides: 'salads', local: 'local', drinks: 'drinks', proteins: 'proteins', rice: 'rice' })[category] || 'local';
+        let cloudDigest = '';
+        async function syncCloudData() {
+            const db = window.Food2SuitDB?.client;
+            if (!db) return;
+            const digest = JSON.stringify([DATA_PRODUCTS, DATA_BUNDLES, DATA_INFO]);
+            if (digest === cloudDigest) return;
+            const products = DATA_PRODUCTS.map((p, index) => ({ legacy_id: String(p.id), name: p.name, description: p.desc || '', price: Number(p.price || 0), category: cloudCategory(p.category), image_url: p.img || '', side_options: p.options || [], is_featured: Boolean(p.featured), sort_order: index }));
+            const bundles = DATA_BUNDLES.map((b, index) => ({ legacy_id: String(b.id), name: b.name, description: b.desc || '', price: Number(b.price || 0), bundle_type: b.type === 'party' ? 'party' : 'combo', image_url: b.img || '', sort_order: index }));
+            const [productsResult, bundlesResult, settingsResult] = await Promise.all([
+                db.from('products').upsert(products, { onConflict: 'legacy_id' }),
+                db.from('bundles').upsert(bundles, { onConflict: 'legacy_id' }),
+                db.from('site_settings').upsert({ setting_key: 'storefront', setting_value: DATA_INFO }, { onConflict: 'setting_key' })
+            ]);
+            if (!productsResult.error && !bundlesResult.error && !settingsResult.error) cloudDigest = digest;
+        }
+        async function publishStorefrontChanges() {
+            cloudDigest = '';
+            await syncCloudData();
+            alert('Changes have been published to the live storefront data.');
+        }
+        async function loadCloudData() {
+            const db = window.Food2SuitDB?.client;
+            if (!db) return;
+            const [productsResult, bundlesResult, settingsResult] = await Promise.all([
+                db.from('products').select('*').order('sort_order'), db.from('bundles').select('*').order('sort_order'), db.from('site_settings').select('setting_value').eq('setting_key', 'storefront').maybeSingle()
+            ]);
+            if (productsResult.data?.length) DATA_PRODUCTS = productsResult.data.map(p => ({ id: Number(p.legacy_id), name: p.name, price: Number(p.price), category: browserCategory(p.category), img: p.image_url, desc: p.description, options: p.side_options || [], featured: p.is_featured }));
+            if (bundlesResult.data?.length) DATA_BUNDLES = bundlesResult.data.map(b => ({ id: Number(b.legacy_id), name: b.name, price: Number(b.price), type: b.bundle_type, img: b.image_url, desc: b.description }));
+            if (settingsResult.data?.setting_value) DATA_INFO = settingsResult.data.setting_value;
+            if (productsResult.data?.length || bundlesResult.data?.length) { localStorage.setItem('food2suit_registry_products', JSON.stringify(DATA_PRODUCTS)); localStorage.setItem('food2suit_registry_bundles', JSON.stringify(DATA_BUNDLES)); localStorage.setItem('food2suit_registry_meta', JSON.stringify(DATA_INFO)); hydrateFormInputs(); renderRegistryGridTable(); renderBundleRegistryTable(); cloudDigest = JSON.stringify([DATA_PRODUCTS, DATA_BUNDLES, DATA_INFO]); }
+            else syncCloudData();
+        }
+        async function renderOrders() {
+            const target = document.getElementById('orders-tbody'), summary = document.getElementById('order-summary');
+            if (!target || !summary) return;
+            const db = window.Food2SuitDB?.client;
+            if (!db) { target.innerHTML = '<tr><td colspan="5" class="p-6 text-center text-gray-500">Order service unavailable.</td></tr>'; return; }
+            const { data: orders, error } = await db.from('orders').select('*, order_items(*)').order('created_at', { ascending: false });
+            if (error) { target.innerHTML = '<tr><td colspan="5" class="p-6 text-center text-red-400">Unable to load orders.</td></tr>'; return; }
+            const groups = { pending: 0, active: 0, completed: 0 };
+            (orders || []).forEach(order => { if (order.status === 'completed') groups.completed++; else if (order.status === 'pending') groups.pending++; else groups.active++; });
+            summary.innerHTML = [['New orders', groups.pending, 'text-orange-400'], ['In progress', groups.active, 'text-blue-400'], ['Finished', groups.completed, 'text-emerald-400']].map(([label, value, color]) => `<article class="bg-gray-950 border border-gray-800 rounded-2xl p-5"><p class="text-xs text-gray-400">${label}</p><b class="text-3xl ${color}">${value}</b></article>`).join('');
+            target.innerHTML = (orders || []).map(order => { const when = new Date(order.created_at).toLocaleString(); const delivery = /Method: Delivery/i.test(order.notes || ''); const steps = delivery ? ['pending','confirmed','preparing','looking_for_rider','out_for_delivery','completed'] : ['pending','confirmed','preparing','completed']; const labels = { pending:'Pending', confirmed:'Confirmed', preparing:'Preparing order', looking_for_rider:'Looking for rider', out_for_delivery:'Out for delivery', completed: delivery ? 'Delivered' : 'Picked up / done' }; const current = order.status === 'cancelled' ? 'cancelled' : (steps.includes(order.status) ? order.status : 'pending'); const next = steps[steps.indexOf(current) + 1]; return `<tr class="ledger-row"><td class="p-3 text-gray-300">${when}</td><td class="p-3 text-white font-bold">${order.customer_name || 'Guest'}<small class="block text-gray-500 font-normal">${delivery ? 'Delivery' : 'Pickup'}</small></td><td class="p-3 text-gray-400">${order.phone || order.email || '—'}</td><td class="p-3 text-emerald-400 font-bold">GH₵ ${Number(order.total || 0).toFixed(2)}</td><td class="p-3"><b class="block text-xs text-white">${current === 'cancelled' ? 'Cancelled' : labels[current]}</b>${next ? `<button onclick="advanceOrder('${order.id}','${current}',${delivery})" class="mt-1 text-[11px] font-bold text-orange-400 hover:text-orange-300">Mark ${labels[next]} →</button>` : ''}</td></tr>`; }).join('') || '<tr><td colspan="5" class="p-6 text-center text-gray-500">No orders recorded yet.</td></tr>';
+            target.innerHTML = (orders || []).map(order => { const when = new Date(order.created_at).toLocaleString(); const delivery = /Method: Delivery/i.test(order.notes || ''); const steps = delivery ? ['pending','confirmed','preparing','looking_for_rider','out_for_delivery','completed'] : ['pending','confirmed','preparing','completed']; const labels = { pending:'Pending', confirmed:'Confirmed', preparing:'Preparing order', looking_for_rider:'Looking for rider', out_for_delivery:'Out for delivery', completed: delivery ? 'Delivered' : 'Picked up / done' }; const current = order.status === 'cancelled' ? 'cancelled' : (steps.includes(order.status) ? order.status : 'pending'); const next = steps[steps.indexOf(current) + 1]; const items = (order.order_items || []).map(item => { const side = Array.isArray(item.selected_options) && item.selected_options[0]?.name ? ` <span class="text-gray-500">+ ${item.selected_options[0].name}</span>` : ''; return `<li>${item.quantity}× ${item.product_name}${side}</li>`; }).join('') || '<li class="text-gray-500">Order items unavailable</li>'; const resend = current === 'confirmed' ? `<button onclick="resendOrderConfirmation('${order.id}')" class="mt-2 text-[11px] font-bold text-sky-400 hover:text-sky-300">Resend confirmation email</button>` : ''; const cancel = !['completed', 'cancelled'].includes(current) ? `<button onclick="cancelOrder('${order.id}')" class="mt-2 block text-[11px] font-bold text-red-400 hover:text-red-300">Cancel order</button>` : ''; return `<tr class="ledger-row"><td class="p-3 text-gray-300">${when}</td><td class="p-3 text-white font-bold">${order.customer_name || 'Guest'}<small class="block text-gray-500 font-normal">${delivery ? 'Delivery' : 'Pickup'} · ${order.phone || order.email || '—'}</small></td><td class="p-3 text-gray-200"><ul class="space-y-1">${items}</ul></td><td class="p-3 text-emerald-400 font-bold">GH₵ ${Number(order.total || 0).toFixed(2)}</td><td class="p-3"><b class="block text-xs text-white">${current === 'cancelled' ? 'Cancelled' : labels[current]}</b>${next ? `<button onclick="advanceOrder('${order.id}','${current}',${delivery})" class="mt-1 text-[11px] font-bold text-orange-400 hover:text-orange-300">Mark ${labels[next]} →</button>` : ''}${resend}${cancel}</td></tr>`; }).join('') || '<tr><td colspan="5" class="p-6 text-center text-gray-500">No orders recorded yet.</td></tr>';
+            return;
+            target.innerHTML = (orders || []).map(order => { const when = new Date(order.created_at).toLocaleString(); return `<tr class="ledger-row"><td class="p-3 text-gray-300">${when}</td><td class="p-3 text-white font-bold">${order.customer_name || 'Guest'}</td><td class="p-3 text-gray-400">${order.phone || order.email || '—'}</td><td class="p-3 text-emerald-400 font-bold">GH₵ ${Number(order.total || 0).toFixed(2)}</td><td class="p-3"><select onchange="updateOrderStatus('${order.id}',this.value)" class="bg-gray-900 border border-gray-700 rounded-lg px-2 py-1 text-xs text-white"><option value="pending" ${order.status === 'pending' ? 'selected' : ''}>New</option><option value="confirmed" ${order.status === 'confirmed' ? 'selected' : ''}>Pending</option><option value="preparing" ${order.status === 'preparing' ? 'selected' : ''}>Preparing</option><option value="out_for_delivery" ${order.status === 'out_for_delivery' ? 'selected' : ''}>Out for delivery</option><option value="completed" ${order.status === 'completed' ? 'selected' : ''}>Finished</option><option value="cancelled" ${order.status === 'cancelled' ? 'selected' : ''}>Cancelled</option></select></td></tr>`; }).join('') || '<tr><td colspan="5" class="p-6 text-center text-gray-500">No orders recorded yet.</td></tr>';
+        }
+        async function updateOrderStatus(id, status) { const { error } = await window.Food2SuitDB.client.from('orders').update({ status }).eq('id', id); if (!error) renderOrders(); }
+        function escapeEmailHtml(value) {
+            return String(value ?? '').replace(/[&<>'\"]/g, char => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', "'": '&#39;', '"': '&quot;' })[char]);
+        }
+        async function sendTestOrderConfirmation(order) {
+            const db = window.Food2SuitDB?.client;
+            if (!db || !order) return;
+            const trackingUrl = new URL(`track-order.html?order=${encodeURIComponent(order.id)}`, location.href).href;
+            const items = (order.order_items || []).map(item => {
+                const side = Array.isArray(item.selected_options) && item.selected_options[0]?.name ? ` — ${item.selected_options[0].name}` : '';
+                return `<li style="margin:7px 0"><strong>${Number(item.quantity || 1)}× ${escapeEmailHtml(item.product_name)}</strong>${escapeEmailHtml(side)}</li>`;
+            }).join('') || '<li>Your order details are being prepared.</li>';
+            const delivery = /Method:\s*Delivery/i.test(order.notes || '');
+            const html = `<div style="font-family:Arial,sans-serif;max-width:620px;margin:auto;color:#172033"><div style="background:#ff6b35;padding:26px 30px;border-radius:18px 18px 0 0;color:white"><h1 style="margin:0;font-size:27px">Your order is confirmed</h1><p style="margin:8px 0 0">Food2Suit is getting your meal ready.</p></div><div style="border:1px solid #e5e7eb;border-top:0;padding:28px 30px;border-radius:0 0 18px 18px"><p>Hello ${escapeEmailHtml(order.customer_name || 'there')},</p><p>Thank you for ordering with Food2Suit. Your order <strong>#${escapeEmailHtml(String(order.id).slice(0, 8).toUpperCase())}</strong> has been confirmed.</p><h2 style="font-size:18px;margin:24px 0 10px">Your order</h2><ul style="padding-left:20px;margin:0 0 16px">${items}</ul><p style="margin:8px 0"><strong>${delivery ? 'Delivery' : 'Pickup'}:</strong> ${delivery ? 'We will call to confirm your delivery fee and rider.' : 'We will let you know when your order is ready for collection.'}</p><p style="font-size:19px"><strong>Total: GH₵ ${Number(order.total || 0).toFixed(2)}</strong></p><a href="${trackingUrl}" style="display:inline-block;margin-top:12px;background:#ff6b35;color:#fff;text-decoration:none;padding:13px 20px;border-radius:10px;font-weight:bold">Track your order</a><p style="font-size:12px;color:#6b7280;margin-top:24px">We’ll keep you updated as your order moves forward.</p></div></div>`;
+            const { data, error } = await db.functions.invoke('food2suit-order-email', { body: { subject: `Food2Suit — order #${String(order.id).slice(0, 8).toUpperCase()} confirmed`, html } });
+            if (error) throw new Error(error.message || 'The email service did not accept the request.');
+            return data;
+        }
+        async function resendOrderConfirmation(id) {
+            const db = window.Food2SuitDB?.client;
+            if (!db) return alert('Email service unavailable.');
+            const { data: order, error } = await db.from('orders').select('*, order_items(*)').eq('id', id).maybeSingle();
+            if (error || !order) return alert('Could not load this order for email sending.');
+            try {
+                await sendTestOrderConfirmation(order);
+                alert('Confirmation email accepted for delivery. Check the Resend test inbox in a moment.');
+            } catch (sendError) {
+                alert(`Confirmation email was not sent: ${sendError.message}`);
+            }
+        }
+        async function cancelOrder(id) {
+            if (!confirm('Cancel this order? This cannot be undone from the order ledger.')) return;
+            const { error } = await window.Food2SuitDB.client.from('orders').update({ status: 'cancelled' }).eq('id', id);
+            if (error) return alert(`Could not cancel the order: ${error.message}`);
+            renderOrders();
+        }
+        async function advanceOrder(id, current, delivery) {
+            const steps = delivery ? ['pending','confirmed','preparing','looking_for_rider','out_for_delivery','completed'] : ['pending','confirmed','preparing','completed'];
+            const next = steps[steps.indexOf(current) + 1];
+            if (!next) return;
+            const db = window.Food2SuitDB.client;
+            const { error } = await db.from('orders').update({ status: next }).eq('id', id);
+            if (error) return;
+            if (next === 'confirmed') {
+                const { data: order } = await db.from('orders').select('*, order_items(*)').eq('id', id).maybeSingle();
+                try {
+                    await sendTestOrderConfirmation(order);
+                    alert('Order confirmed and confirmation email accepted for delivery.');
+                } catch (sendError) {
+                    alert(`Order confirmed, but the email could not be sent: ${sendError.message}`);
+                }
+            }
+            renderOrders();
+        }
+        function subscribeOrderUpdates() { const db = window.Food2SuitDB?.client; if (!db || window.food2suitOrderSubscription) return; window.food2suitOrderSubscription = db.channel('food2suit-order-ledger').on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, renderOrders).subscribe(); }
+        window.addEventListener('load', () => { loadGlobalState(); setTimeout(loadCloudData, 800); setInterval(syncCloudData, 1800); });
+        window.addEventListener('load', () => { setTimeout(() => { subscribeOrderUpdates(); renderOrders(); }, 1000); setInterval(renderOrders, 8000); });
 
         function loadGlobalState() {
             const rawProducts = localStorage.getItem('food2suit_registry_products');
@@ -372,60 +489,53 @@
         function renderRegistryGridTable() {
             const tbody = document.getElementById('admin-tbody');
             if(DATA_PRODUCTS.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="6" class="p-6 text-center text-gray-500 italic">No products listed.</td></tr>`;
+                tbody.innerHTML = `<p class="p-6 text-center text-gray-500 italic md:col-span-2">No dishes listed.</p>`;
                 return;
             }
             tbody.innerHTML = DATA_PRODUCTS.map((p, index) => `
-                <tr class="ledger-row hover:bg-gray-900/30" style="animation-delay: ${index * 30}ms">
-                    <td class="p-2">
-                        <input type="text" value="${p.name}" onchange="mutateProduct(${p.id}, 'name', this.value)" class="w-full bg-transparent border-b border-transparent focus:border-orange-500 font-semibold outline-none text-white p-0.5 text-xs">
-                        <input type="text" value="${p.img}" onchange="mutateProduct(${p.id}, 'img', this.value)" class="w-full bg-transparent font-medium text-[10px] text-gray-500 border-b border-transparent focus:border-orange-500 outline-none mt-1">
-                    </td>
-                    <td class="p-2">
-                        <select onchange="mutateProduct(${p.id}, 'category', this.value)" class="bg-transparent text-gray-300 border border-transparent hover:border-gray-700 outline-none text-xs cursor-pointer">
+                <article class="ledger-row bg-gray-950 p-5 space-y-3" style="animation-delay: ${index * 30}ms">
+                    <div class="flex items-center justify-between gap-3"><p class="text-[10px] font-bold uppercase tracking-wider text-orange-400">Dish details</p><label class="flex items-center gap-2 text-[11px] text-gray-400">Featured <input type="checkbox" ${p.featured ? 'checked' : ''} onchange="mutateProductFeatured(${p.id}, this.checked)" class="accent-orange-500 cursor-pointer" title="Feature on the homepage"></label></div>
+                    <input type="text" value="${p.name}" onchange="mutateProduct(${p.id}, 'name', this.value)" aria-label="Dish name" class="w-full bg-gray-900 border border-gray-700 focus:border-orange-500 rounded-xl font-semibold outline-none text-white px-3 py-2 text-sm">
+                    <input type="text" value="${p.img}" onchange="mutateProduct(${p.id}, 'img', this.value)" aria-label="Dish image URL" class="w-full bg-gray-900 border border-gray-700 focus:border-orange-500 rounded-xl text-[11px] text-gray-400 px-3 py-2">
+                    <textarea rows="1" oninput="autoExpandDescription(this)" onchange="mutateProduct(${p.id}, 'desc', this.value)" aria-label="Dish description" placeholder="Describe this dish" class="dish-description w-full bg-gray-900 border border-gray-700 focus:border-orange-500 rounded-xl text-xs text-gray-300 px-3 py-2">${p.desc || ''}</textarea>
+                    <div class="grid grid-cols-2 gap-3">
+                        <select onchange="mutateProduct(${p.id}, 'category', this.value)" aria-label="Dish category" class="bg-gray-900 text-gray-300 border border-gray-700 rounded-xl px-3 py-2 outline-none text-xs cursor-pointer">
                             <option value="rice" ${(p.category === 'rice' || p.category === 'mains') ? 'selected' : ''}>Rice Dishes</option>
                             <option value="local" ${p.category === 'local' ? 'selected' : ''}>Local Specialties</option>
                             <option value="salads" ${(p.category === 'salads' || p.category === 'sides') ? 'selected' : ''}>Salads & Sides</option>
                             <option value="drinks" ${p.category === 'drinks' ? 'selected' : ''}>Drinks</option>
                             <option value="proteins" ${p.category === 'proteins' ? 'selected' : ''}>Proteins</option>
                         </select>
-                    </td>
-                    <td class="p-2">
-                        <input type="number" step="0.01" value="${p.price}" onchange="mutateProduct(${p.id}, 'price', this.value)" class="w-full bg-transparent border-b border-transparent focus:border-orange-500 text-emerald-400 font-bold outline-none text-xs">
-                    </td>
-                    <td class="p-2">
-                        <input type="text" value="${p.options ? p.options.map(option => typeof option === 'string' ? option + '|5' : option.name + '|' + Number(option.price || 0)).join(', ') : ''}" onchange="mutateProductOptions(${p.id}, this.value)" placeholder="Chicken|15, Fish|18" class="w-full bg-transparent border-b border-transparent focus:border-orange-500 text-gray-400 outline-none text-xs">
-                    </td>
-                    <td class="p-2 text-center"><input type="checkbox" ${p.featured ? 'checked' : ''} onchange="mutateProductFeatured(${p.id}, this.checked)" class="accent-orange-500 cursor-pointer" title="Pin this dish to the home-page featured section"></td>
-                    <td class="p-2 text-center">
-                        <button onclick="deleteProductItem(${p.id})" class="bg-red-950/40 hover:bg-red-900 text-red-400 border border-red-900 text-[11px] px-2.5 py-1 rounded-xl transition-all duration-200 active:scale-90">Delete</button>
-                    </td>
-                </tr>
+                        <input type="number" step="0.01" value="${p.price}" onchange="mutateProduct(${p.id}, 'price', this.value)" aria-label="Dish price" class="w-full bg-gray-900 border border-gray-700 focus:border-orange-500 rounded-xl text-emerald-400 font-bold outline-none text-xs px-3 py-2">
+                    </div>
+                    <div><div class="flex items-center justify-between mb-2"><label class="block text-[10px] font-bold text-gray-500 uppercase">Optional sides</label><button type="button" onclick="addProductSide(${p.id})" class="text-[11px] font-bold text-orange-400 hover:text-orange-300">+ Add side</button></div><div class="space-y-2">${(p.options || []).map((option, sideIndex) => { const side = typeof option === 'string' ? { name: option, price: 0 } : option; return `<div class="grid grid-cols-[1fr_72px_auto] gap-2"><input type="text" value="${side.name || ''}" onchange="mutateProductSide(${p.id},${sideIndex},'name',this.value)" placeholder="Side name" class="min-w-0 bg-gray-900 border border-gray-700 focus:border-orange-500 rounded-lg text-xs text-gray-300 px-2 py-2"><input type="number" min="0" step="0.01" value="${Number(side.price || 0)}" onchange="mutateProductSide(${p.id},${sideIndex},'price',this.value)" aria-label="Extra cost" class="bg-gray-900 border border-gray-700 focus:border-orange-500 rounded-lg text-xs text-emerald-400 px-2 py-2"><button type="button" onclick="removeProductSide(${p.id},${sideIndex})" class="text-red-400 text-xs px-1">×</button></div>`; }).join('') || '<p class="text-[11px] text-gray-600">No optional sides yet.</p>'}</div></div>
+                    <button onclick="deleteProductItem(${p.id})" class="text-red-400 text-xs font-bold hover:text-red-300">Delete dish</button>
+                </article>
             `).join('');
+            requestAnimationFrame(() => document.querySelectorAll('.dish-description').forEach(autoExpandDescription));
         }
 
+        function autoExpandDescription(textarea) { textarea.style.height = 'auto'; textarea.style.height = `${textarea.scrollHeight}px`; }
+
         function renderBundleRegistryTable() {
-            const tbody = document.getElementById('admin-bundle-tbody');
+            let tbody = document.getElementById('admin-bundle-tbody');
+            if (tbody?.tagName === 'TBODY') {
+                tbody.closest('table').outerHTML = '<div id="admin-bundle-tbody" class="grid grid-cols-1 md:grid-cols-2 gap-px bg-gray-800"></div>';
+                tbody = document.getElementById('admin-bundle-tbody');
+            }
             if(DATA_BUNDLES.length === 0) {
-                tbody.innerHTML = `<tr><td colspan="4" class="p-6 text-center text-gray-500 italic">No bundle configurations listed.</td></tr>`;
+                tbody.innerHTML = `<p class="p-6 text-center text-gray-500 italic md:col-span-2">No bundles listed.</p>`;
                 return;
             }
             tbody.innerHTML = DATA_BUNDLES.map((b, index) => `
-                <tr class="ledger-row hover:bg-gray-900/30" style="animation-delay: ${index * 40}ms">
-                    <td class="p-2">
-                        <input type="text" value="${b.name}" onchange="mutateBundle(${b.id}, 'name', this.value)" class="w-full bg-transparent border-b border-transparent focus:border-orange-500 font-semibold outline-none text-white p-0.5 text-xs">
-                        <input type="text" value="${b.img}" onchange="mutateBundle(${b.id}, 'img', this.value)" class="w-full bg-transparent font-medium text-[10px] text-gray-500 border-b border-transparent focus:border-orange-500 outline-none mt-1">
-                    </td>
-                    <td class="p-2">
-                        <input type="number" step="0.01" value="${b.price}" onchange="mutateBundle(${b.id}, 'price', this.value)" class="w-full bg-transparent border-b border-transparent focus:border-orange-500 text-emerald-400 font-bold outline-none text-xs">
-                    </td>
-                    <td class="p-2">
-                        <input type="text" value="${b.desc}" onchange="mutateBundle(${b.id}, 'desc', this.value)" class="w-full bg-transparent border-b border-transparent focus:border-orange-500 text-gray-400 outline-none text-xs">
-                    </td>
-                    <td class="p-2 text-center">
-                        <button onclick="deleteBundleItem(${b.id})" class="bg-red-950/40 hover:bg-red-900 text-red-400 border border-red-900 text-[11px] px-2.5 py-1 rounded-xl transition-all duration-200 active:scale-90">Delete</button>
-                    </td>
-                </tr>
+                <article class="ledger-row bg-gray-950 p-5 space-y-3" style="animation-delay: ${index * 40}ms">
+                    <p class="text-[10px] font-bold uppercase tracking-wider text-purple-400">Bundle details</p>
+                    <input type="text" value="${b.name}" onchange="mutateBundle(${b.id}, 'name', this.value)" aria-label="Bundle name" class="w-full bg-gray-900 border border-gray-700 focus:border-purple-500 rounded-xl font-semibold outline-none text-white px-3 py-2 text-sm">
+                    <input type="text" value="${b.img}" onchange="mutateBundle(${b.id}, 'img', this.value)" aria-label="Bundle image URL" class="w-full bg-gray-900 border border-gray-700 focus:border-purple-500 rounded-xl text-[11px] text-gray-400 px-3 py-2">
+                    <input type="number" step="0.01" value="${b.price}" onchange="mutateBundle(${b.id}, 'price', this.value)" aria-label="Bundle price" class="w-full bg-gray-900 border border-gray-700 focus:border-purple-500 rounded-xl text-emerald-400 font-bold outline-none text-xs px-3 py-2">
+                    <textarea rows="3" onchange="mutateBundle(${b.id}, 'desc', this.value)" aria-label="Bundle description" class="w-full bg-gray-900 border border-gray-700 focus:border-purple-500 rounded-xl text-gray-300 outline-none text-xs px-3 py-2">${b.desc || ''}</textarea>
+                    <button onclick="deleteBundleItem(${b.id})" class="text-red-400 text-xs font-bold hover:text-red-300">Delete bundle</button>
+                </article>
             `).join('');
         }
 
@@ -448,6 +558,32 @@
             }
         }
 
+        function mutateProductSide(id, index, field, value) {
+            const product = DATA_PRODUCTS.find(p => p.id === id);
+            if (!product) return;
+            product.options = (product.options || []).map(option => typeof option === 'string' ? { name: option, price: 0 } : option);
+            if (!product.options[index]) return;
+            product.options[index][field] = field === 'price' ? Math.max(0, Number(value) || 0) : value;
+            localStorage.setItem('food2suit_registry_products', JSON.stringify(DATA_PRODUCTS));
+        }
+
+        function addProductSide(id) {
+            const product = DATA_PRODUCTS.find(p => p.id === id);
+            if (!product) return;
+            product.options = (product.options || []).map(option => typeof option === 'string' ? { name: option, price: 0 } : option);
+            product.options.push({ name: '', price: 0 });
+            localStorage.setItem('food2suit_registry_products', JSON.stringify(DATA_PRODUCTS));
+            renderRegistryGridTable();
+        }
+
+        function removeProductSide(id, index) {
+            const product = DATA_PRODUCTS.find(p => p.id === id);
+            if (!product) return;
+            product.options = (product.options || []).filter((_, optionIndex) => optionIndex !== index);
+            localStorage.setItem('food2suit_registry_products', JSON.stringify(DATA_PRODUCTS));
+            renderRegistryGridTable();
+        }
+
         function mutateProductFeatured(id, value) {
             const match = DATA_PRODUCTS.find(p => p.id === id);
             if(match) {
@@ -460,8 +596,19 @@
             if(confirm("Delete this menu item?")) {
                 DATA_PRODUCTS = DATA_PRODUCTS.filter(p => p.id !== id);
                 localStorage.setItem('food2suit_registry_products', JSON.stringify(DATA_PRODUCTS));
+                window.Food2SuitDB?.client?.from('products').delete().eq('legacy_id', String(id));
                 renderRegistryGridTable();
             }
+        }
+
+        function addNewSideRow(name = '', price = '') {
+            const rows = document.getElementById('new-side-rows');
+            if (!rows) return;
+            const row = document.createElement('div');
+            row.className = 'grid grid-cols-[1fr_72px_auto] gap-2';
+            row.innerHTML = `<input type="text" value="${name}" placeholder="Side name" class="new-side-name min-w-0 bg-gray-900 border border-gray-700 text-white rounded-lg px-2 py-2 text-xs"><input type="number" value="${price}" min="0" step="0.01" placeholder="Cost" class="new-side-price bg-gray-900 border border-gray-700 text-emerald-400 rounded-lg px-2 py-2 text-xs"><button type="button" class="text-red-400 text-xs px-1" aria-label="Remove side">×</button>`;
+            row.querySelector('button').onclick = () => row.remove();
+            rows.appendChild(row);
         }
 
         function handleCreateProduct(e) {
@@ -471,18 +618,18 @@
             const category = document.getElementById('p-category').value;
             const img = document.getElementById('p-img').value;
             const desc = document.getElementById('p-desc').value;
-            const rawOpts = document.getElementById('p-options').value;
-
-            const options = rawOpts.split(',').map(s => s.trim()).filter(Boolean).map(entry => {
-                const [name, rawPrice] = entry.split('|');
-                return { name: name.trim(), price: Number(rawPrice || 0) };
-            });
+            const options = [...document.querySelectorAll('#new-side-rows > div')].map(row => ({
+                name: row.querySelector('.new-side-name').value.trim(),
+                price: Math.max(0, Number(row.querySelector('.new-side-price').value) || 0)
+            })).filter(option => option.name);
             const id = DATA_PRODUCTS.length ? Math.max(...DATA_PRODUCTS.map(p => p.id)) + 1 : 1;
 
             DATA_PRODUCTS.push({ id, name, price, category, img, desc, options });
             localStorage.setItem('food2suit_registry_products', JSON.stringify(DATA_PRODUCTS));
             renderRegistryGridTable();
             e.target.reset();
+            document.getElementById('new-side-rows').innerHTML = '';
+            e.target.classList.add('hidden');
         }
 
         function mutateBundle(id, field, value) {
@@ -497,6 +644,7 @@
             if(confirm("Delete this combo bundle?")) {
                 DATA_BUNDLES = DATA_BUNDLES.filter(b => b.id !== id);
                 localStorage.setItem('food2suit_registry_bundles', JSON.stringify(DATA_BUNDLES));
+                window.Food2SuitDB?.client?.from('bundles').delete().eq('legacy_id', String(id));
                 renderBundleRegistryTable();
             }
         }

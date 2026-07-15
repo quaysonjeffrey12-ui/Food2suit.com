@@ -1,0 +1,141 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Food2Suit | Checkout</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="supabase-client.js"></script>
+  <link rel="stylesheet" href="storefront.css">
+  <style>
+    body { font-family: system-ui, sans-serif; }
+    .summary-row { display:flex; justify-content:space-between; gap:16px; padding:10px 0; border-bottom:1px solid #374151; }
+    .fee-row { display:flex; justify-content:space-between; gap:16px; margin-top:12px; font-size:14px; }
+    .fee-row.total { border-top:1px solid #4b5563; padding-top:16px; font-size:18px; font-weight:800; }
+    .delivery-list { display:grid; gap:10px; }
+    .delivery-choice { display:flex; align-items:center; gap:12px; border:2px solid #e5e7eb; border-radius:14px; padding:14px; font-weight:800; cursor:pointer; transition:.2s ease; }
+    .delivery-choice input { width:18px; height:18px; accent-color:#FF6B35; }
+    .delivery-choice:hover, .delivery-choice.active { border-color:#FF6B35; background:#fff1eb; color:#c2410c; transform:translateY(-1px); }
+    #order-success { position:fixed; inset:0; z-index:100; display:none; place-items:center; padding:20px; background:rgba(17,24,39,.78); backdrop-filter:blur(6px); }
+    #order-success.open { display:grid; }
+  </style>
+</head>
+<body class="bg-[#fafafa] text-gray-950">
+  <header class="sticky top-0 z-20 bg-gray-950 text-white">
+    <div class="max-w-6xl mx-auto min-h-[72px] px-5 flex items-center justify-between">
+      <a href="index.html"><b class="text-xl text-[#FF6B35]">Food2Suit</b><small class="block text-gray-300">Everything Food</small></a>
+      <a href="menu.html" class="text-sm font-bold hover:text-[#ff8a62]">&larr; Continue shopping</a>
+    </div>
+  </header>
+  <main class="max-w-5xl mx-auto px-5 py-12">
+    <p class="text-[#FF6B35] text-xs font-bold tracking-widest uppercase">Checkout</p>
+    <h1 class="text-4xl font-extrabold mt-2 mb-8">Order details</h1>
+    <div class="grid md:grid-cols-2 gap-8 items-start">
+      <form id="checkout-form" class="bg-white rounded-3xl border border-gray-100 shadow-sm p-7 space-y-4">
+        <h2 class="font-extrabold text-xl">Pickup or delivery?</h2>
+        <div class="delivery-list" role="radiogroup" aria-label="Order method">
+          <label class="delivery-choice active"><input type="radio" name="delivery_method" value="pickup" checked><span>Pickup</span></label>
+          <label class="delivery-choice"><input type="radio" name="delivery_method" value="delivery"><span>Delivery</span></label>
+        </div>
+        <p id="delivery-hint" class="text-xs text-gray-500">We will confirm your pickup details by phone.</p>
+        <input name="name" required placeholder="Your full name" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+        <input name="phone" required type="tel" inputmode="numeric" pattern="[0-9]{10}" maxlength="10" placeholder="Phone number (10 digits)" title="Enter a 10-digit phone number" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+        <input name="email" type="email" pattern="[^\s@]+@[^\s@]+\.[A-Za-z]{2,}" placeholder="Email (optional)" title="Enter a valid email address, for example name@gmail.com" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+        <textarea id="address" name="address" rows="3" placeholder="Pickup notes (optional)" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3"></textarea>
+        <textarea name="notes" rows="3" placeholder="Order notes (optional)" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3"></textarea>
+        <button type="submit" class="w-full bg-[#FF6B35] text-white font-extrabold py-3 rounded-xl hover:bg-[#e55a2b]">Place order</button>
+        <p id="checkout-status" class="text-sm text-gray-500" aria-live="polite"></p>
+      </form>
+      <aside class="bg-gray-950 text-white rounded-3xl p-7">
+        <h2 class="font-extrabold text-xl mb-3">Your order</h2>
+        <div id="checkout-items"></div>
+        <div class="fee-row"><span>Food subtotal</span><b id="subtotal"></b></div>
+        <div class="fee-row"><span>Delivery fee</span><b id="delivery-fee">To be confirmed</b></div>
+        <div class="fee-row total"><span>Food total</span><b id="checkout-total" class="text-[#ff8a62]"></b></div>
+        <p class="text-xs text-gray-400 mt-5">For delivery, a Food2Suit team member will call you to confirm the delivery fee before your order is dispatched.</p>
+      </aside>
+    </div>
+  </main>
+  <section id="order-success" role="status" aria-live="assertive"><div class="max-w-sm w-full rounded-3xl bg-white text-center p-8 shadow-2xl"><div class="text-4xl mb-4">✓</div><p class="text-[#FF6B35] font-bold text-xs uppercase tracking-widest">Order received</p><h2 class="text-2xl font-extrabold mt-2">Thank you!</h2><p class="text-gray-500 mt-3">Someone from Food2Suit will reach out to you shortly.</p><p class="mt-6 text-sm font-bold text-gray-700">Returning home in <span id="success-countdown" class="text-[#FF6B35]">8</span>s</p></div></section>
+  <script>
+    const cart = JSON.parse(localStorage.getItem('food2suit_cart') || '[]');
+    const items = document.getElementById('checkout-items');
+    const getMethod = () => document.querySelector('input[name="delivery_method"]:checked').value;
+    const address = document.getElementById('address');
+    const subtotal = cart.reduce((sum, item) => sum + Number(item.price) * item.qty, 0);
+
+    items.innerHTML = cart.map(item => `<div class="summary-row text-sm"><span>${item.qty}&times; ${item.name}</span><b>GH&#8373; ${(Number(item.price) * item.qty).toFixed(2)}</b></div>`).join('') || '<p class="text-gray-400">Your tray is empty.</p>';
+
+    function updateCheckout() {
+      const pickup = getMethod() === 'pickup';
+      address.required = !pickup;
+      address.placeholder = pickup ? 'Pickup notes (optional)' : 'Delivery address';
+      document.getElementById('delivery-fee').textContent = pickup ? 'GH₵ 0.00' : 'To be confirmed';
+      document.getElementById('delivery-hint').textContent = pickup
+        ? 'We will confirm your pickup details by phone.'
+        : 'Enter your address. We will call to confirm the delivery fee before dispatch.';
+      document.getElementById('subtotal').textContent = `GH₵ ${subtotal.toFixed(2)}`;
+      document.getElementById('checkout-total').textContent = `GH₵ ${subtotal.toFixed(2)}`;
+    }
+    document.querySelectorAll('input[name="delivery_method"]').forEach(input => input.addEventListener('change', () => {
+      document.querySelectorAll('.delivery-choice').forEach(choice => choice.classList.toggle('active', choice.querySelector('input').checked));
+      updateCheckout();
+    }));
+    document.querySelector('input[name="phone"]').addEventListener('input', event => {
+      event.target.value = event.target.value.replace(/\D/g, '').slice(0, 10);
+    });
+    updateCheckout();
+    if (!cart.length) document.querySelector('#checkout-form button').disabled = true;
+    function showSuccess() { let seconds = 8; const overlay = document.getElementById('order-success'); const countdown = document.getElementById('success-countdown'); overlay.classList.add('open'); const timer = setInterval(() => { seconds -= 1; countdown.textContent = seconds; if (seconds <= 0) { clearInterval(timer); location.href = 'index.html'; } }, 1000); }
+
+    document.getElementById('checkout-form').addEventListener('submit', async event => {
+      event.preventDefault();
+      const form = event.target;
+      const button = form.querySelector('button[type="submit"]');
+      const status = document.getElementById('checkout-status');
+      if (!form.reportValidity()) return;
+      const values = Object.fromEntries(new FormData(form).entries());
+      if (!/^\d{10}$/.test(values.phone)) { status.textContent = 'Enter a 10-digit phone number.'; return; }
+      if (values.email && !/^[^\s@]+@[^\s@]+\.[A-Za-z]{2,}$/.test(values.email)) { status.textContent = 'Enter a valid email address.'; return; }
+      if (!window.Food2SuitDB?.client) { status.textContent = 'Order service is unavailable. Please refresh and try again.'; return; }
+      button.disabled = true;
+      button.textContent = 'Placing order…';
+      try {
+        const orderId = crypto.randomUUID();
+        const orderMethod = getMethod();
+        const deliveryNote = orderMethod === 'pickup' ? 'Pickup — GH₵ 0.00' : 'Delivery — fee to be confirmed by phone';
+        const note = [values.notes, `Method: ${deliveryNote}`].filter(Boolean).join('\n');
+        const { error } = await Food2SuitDB.client.from('orders').insert({
+          id: orderId,
+          customer_name: values.name,
+          phone: values.phone,
+          email: values.email || null,
+          delivery_address: values.address || 'Pickup',
+          notes: note,
+          total: subtotal
+        });
+        if (error) throw error;
+        const { error: itemsError } = await Food2SuitDB.client.from('order_items').insert(cart.map(item => ({
+          order_id: orderId,
+          product_name: item.name,
+          unit_price: Number(item.price),
+          quantity: item.qty,
+          selected_options: item.option ? [{ name: item.option }] : []
+        })));
+        if (itemsError) throw itemsError;
+        localStorage.setItem('food2suit_cart', '[]');
+        status.textContent = orderMethod === 'delivery' ? 'Order received! We will call you to confirm the delivery fee.' : 'Order received! We will contact you shortly.';
+        button.textContent = 'Order placed';
+        showSuccess();
+      } catch (error) {
+        console.error('Food2Suit order error:', error);
+        status.textContent = 'We could not place your order. Please try again.';
+        button.disabled = false;
+        button.textContent = 'Place order';
+      }
+    });
+  </script>
+  <script src="storefront.js"></script>
+</body>
+</html>
