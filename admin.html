@@ -91,6 +91,10 @@
                 <h2 class="text-xl font-bold text-white tracking-tight">Global Storefront Settings</h2>
                 <p class="text-xs text-gray-400 mt-1">Live-configure branding parameters, text fields, banners, and primary support endpoints.</p>
             </div>
+            <section class="bg-gray-950 border border-gray-800 rounded-3xl p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-xl shadow-black/40">
+                <div><p class="text-[10px] font-bold uppercase tracking-[.18em] text-orange-400">Shop status</p><h3 class="mt-1 text-base font-bold text-white">Food2Suit operates from 8:00 AM to 6:00 PM</h3><p class="mt-1 text-xs text-gray-400">Turn this off for an early close, a late opening, or any temporary closure.</p></div>
+                <label class="inline-flex items-center gap-3 rounded-2xl border border-gray-700 bg-gray-900 px-4 py-3 cursor-pointer"><input id="cfg-shop-open" type="checkbox" onchange="document.getElementById('cfg-shop-open-label').textContent=this.checked?'Open for orders':'Closed to new orders'" class="h-5 w-5 accent-emerald-500"><span id="cfg-shop-open-label" class="text-sm font-bold text-emerald-400">Open for orders</span></label>
+            </section>
             <form onsubmit="handleSaveGlobalInfo(event)" class="bg-gray-950 border border-gray-800 rounded-3xl p-6 grid grid-cols-1 md:grid-cols-3 gap-5 shadow-xl shadow-black/40">
                 <div>
                     <label class="block text-[11px] font-bold text-gray-400 uppercase mb-1">Brand Name</label>
@@ -316,7 +320,8 @@
             brandName: "Food2Suit", motto: "Everything Food", bannerTag: "Free Delivery over GH₵ 150",
             heroTitle: "Authentic Meals, Made with Love", heroDesc: "From everyday lunches to unforgettable events, Food2Suit serves delicious meals with quality ingredients and care.",
             email: "hello@food2suit.com", phone: "+233 50 123 4567", address: "East Legon, Accra, Ghana",
-            whatsapp: "233501234567", about: "From everyday meals to celebrations, Food2Suit brings trusted local flavour, quality ingredients, and warm service to every order."
+            whatsapp: "233501234567", about: "From everyday meals to celebrations, Food2Suit brings trusted local flavour, quality ingredients, and warm service to every order.",
+            shopOpen: true, regularHours: "Daily, 8:00 AM – 6:00 PM"
         };
 
         const cloudCategory = category => ({ traditional: 'local', local: 'local', salads: 'salads_sides', sides: 'drinks', drinks: 'drinks', proteins: 'proteins', rice: 'rice' })[category] || 'local';
@@ -374,14 +379,17 @@
                 const next = steps[steps.indexOf(current) + 1];
                 const statusLabel = current === 'cancelled' ? 'Cancelled' : (current === 'completed' ? (delivery ? 'Delivered' : 'Picked up / done') : labels[current]);
                 const fulfilment = delivery ? `Delivery &middot; ${escapeEmailHtml(order.delivery_address || 'Address to be confirmed')}` : 'Pickup';
+                const contact = [order.phone, order.email].filter(Boolean).map(escapeEmailHtml).join(' &middot; ') || 'No contact details';
+                const customerNotes = String(order.notes || '').split('\n').filter(note => !/^Method:/i.test(note)).join(' ').trim();
+                const payment = order.payment_status === 'paid' ? 'Paid' : (order.payment_status === 'pending' ? 'Payment pending' : 'Unpaid');
                 const items = (order.order_items || []).map(item => {
                     const selected = Array.isArray(item.selected_options) ? item.selected_options.map(option => option?.name).filter(Boolean) : [];
                     const side = selected.length ? ` <span class="text-gray-500">+ ${escapeEmailHtml(selected.join(', '))}</span>` : '';
-                    return `<li>${Number(item.quantity || 1)}&times; ${escapeEmailHtml(item.product_name)}${side}</li>`;
+                    return `<li><b>${Number(item.quantity || 1)}&times; ${escapeEmailHtml(item.product_name)}</b>${side}<small class="block text-gray-500">GH&#8373; ${Number(item.unit_price || 0).toFixed(2)} each</small></li>`;
                 }).join('') || '<li class="text-gray-500">Order items are still being saved…</li>';
                 const resend = current === 'confirmed' ? `<button onclick="resendOrderConfirmation('${order.id}')" class="mt-2 text-[11px] font-bold text-sky-400 hover:text-sky-300">Resend confirmation email</button>` : '';
                 const cancel = !['completed', 'cancelled'].includes(current) ? `<button onclick="cancelOrder('${order.id}')" class="mt-2 block text-[11px] font-bold text-red-400 hover:text-red-300">Cancel order</button>` : '';
-                return `<tr class="ledger-row"><td class="p-3 text-gray-300">${when}</td><td class="p-3 text-white font-bold">${escapeEmailHtml(order.customer_name || 'Guest')}<small class="block text-gray-500 font-normal">${fulfilment}</small><small class="block text-gray-500 font-normal">${escapeEmailHtml(order.phone || order.email || '—')}</small></td><td class="p-3 text-gray-200"><ul class="space-y-1">${items}</ul></td><td class="p-3 text-emerald-400 font-bold">GH&#8373; ${Number(order.total || 0).toFixed(2)}</td><td class="p-3"><b class="block text-xs text-white">${statusLabel}</b>${next ? `<button onclick="advanceOrder('${order.id}','${current}',${delivery})" class="mt-1 text-[11px] font-bold text-orange-400 hover:text-orange-300">Mark ${labels[next] || (delivery ? 'Delivered' : 'Picked up / done')} &rarr;</button>` : ''}${resend}${cancel}</td></tr>`;
+                return `<tr class="ledger-row"><td class="p-3 text-gray-300">${when}<small class="mt-1 block text-[10px] text-gray-500">#${escapeEmailHtml(String(order.id).slice(0, 8).toUpperCase())}</small></td><td class="p-3 text-white font-bold">${escapeEmailHtml(order.customer_name || 'Guest')}<small class="mt-1 block text-gray-400 font-normal">${contact}</small><small class="mt-1 block text-gray-500 font-normal">${fulfilment}</small>${customerNotes ? `<small class="mt-2 block text-gray-400 font-normal">Note: ${escapeEmailHtml(customerNotes)}</small>` : ''}</td><td class="p-3 text-gray-200"><ul class="space-y-2">${items}</ul></td><td class="p-3 text-emerald-400 font-bold">GH&#8373; ${Number(order.total || 0).toFixed(2)}<small class="mt-1 block text-[10px] ${order.payment_status === 'paid' ? 'text-emerald-300' : 'text-amber-300'}">${payment}</small></td><td class="p-3"><b class="block text-xs text-white">${statusLabel}</b>${next ? `<button onclick="advanceOrder('${order.id}','${current}',${delivery})" class="mt-1 text-[11px] font-bold text-orange-400 hover:text-orange-300">Mark ${labels[next] || (delivery ? 'Delivered' : 'Picked up / done')} &rarr;</button>` : ''}${resend}${cancel}</td></tr>`;
             }).join('') || '<tr><td colspan="5" class="p-6 text-center text-gray-500">No orders recorded yet.</td></tr>';
         }
         async function updateOrderStatus(id, status) { const { error } = await window.Food2SuitDB.client.from('orders').update({ status }).eq('id', id); if (!error) renderOrders(); }
@@ -563,6 +571,9 @@
             document.getElementById('cfg-address').value = DATA_INFO.address || '';
             document.getElementById('cfg-whatsapp').value = DATA_INFO.whatsapp || '';
             document.getElementById('cfg-about').value = DATA_INFO.about || '';
+            const shopOpen = DATA_INFO.shopOpen !== false;
+            document.getElementById('cfg-shop-open').checked = shopOpen;
+            document.getElementById('cfg-shop-open-label').textContent = shopOpen ? 'Open for orders' : 'Closed to new orders';
         }
 
         function renderRegistryGridTable() {
@@ -755,10 +766,13 @@
                 email: document.getElementById('cfg-email').value,
                 address: document.getElementById('cfg-address').value,
                 whatsapp: document.getElementById('cfg-whatsapp').value,
-                about: document.getElementById('cfg-about').value
+                about: document.getElementById('cfg-about').value,
+                shopOpen: document.getElementById('cfg-shop-open').checked,
+                regularHours: 'Daily, 8:00 AM – 6:00 PM'
             };
             localStorage.setItem('food2suit_registry_meta', JSON.stringify(DATA_INFO));
-            alert("Global settings saved and synchronized!");
+            syncCloudData();
+            alert(`Storefront settings saved. Food2Suit is now ${DATA_INFO.shopOpen ? 'open' : 'closed'} for new orders.`);
         }
 
         function wipeAndResetAll() {

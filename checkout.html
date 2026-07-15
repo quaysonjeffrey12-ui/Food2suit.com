@@ -94,6 +94,7 @@
       const form = event.target;
       const button = form.querySelector('button[type="submit"]');
       const status = document.getElementById('checkout-status');
+      if (!window.Food2Suit?.isShopOpen?.()) { status.textContent = 'Food2Suit is currently closed for new orders. Our regular hours are 8:00 AM to 6:00 PM.'; return; }
       if (!form.reportValidity()) return;
       const values = Object.fromEntries(new FormData(form).entries());
       if (!/^\d{10}$/.test(values.phone)) { status.textContent = 'Enter a 10-digit phone number.'; return; }

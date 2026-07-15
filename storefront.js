@@ -12,6 +12,26 @@
     document.body.classList.toggle('sf-dark', dark);
   }
 
+  const shopInfo = () => JSON.parse(localStorage.getItem('food2suit_registry_meta') || '{}');
+  const isShopOpen = () => shopInfo().shopOpen !== false;
+  function showShopStatus() {
+    document.getElementById('sf-shop-status')?.remove();
+    if (isShopOpen()) return;
+    const hours = shopInfo().regularHours || 'Daily, 8:00 AM – 6:00 PM';
+    document.body.insertAdjacentHTML('afterbegin', `<div id="sf-shop-status" role="status" style="position:sticky;top:0;z-index:60;background:#7c2d12;color:#fff;padding:10px 18px;text-align:center;font:700 13px system-ui">Food2Suit is currently closed for new orders. Regular hours: ${hours}.</div>`);
+  }
+  async function refreshShopStatus() {
+    const client = window.Food2SuitDB?.client;
+    if (!client) return showShopStatus();
+    try {
+      const { data, error } = await client.from('site_settings').select('setting_value').eq('setting_key', 'storefront').maybeSingle();
+      if (!error && data?.setting_value) {
+        localStorage.setItem('food2suit_registry_meta', JSON.stringify({ ...shopInfo(), ...data.setting_value }));
+      }
+    } catch (_) { /* Keep the most recently known shop status when offline. */ }
+    showShopStatus();
+  }
+
   function renderCart() {
     const cart = getCart();
     const count = cart.reduce((sum, item) => sum + item.qty, 0);
@@ -28,11 +48,12 @@
     const cartId = item.cartId || `${item.id}-${item.option || ''}`;
     const existing = cart.find(entry => entry.cartId === cartId);
     if (existing) existing.qty += item.qty || 1;
-    else cart.push({ id: item.id, cartId, name: item.name, price: Number(item.price), qty: item.qty || 1 });
+    else cart.push({ id: item.id, cartId, name: item.name, price: Number(item.price), qty: item.qty || 1, option: item.option || '' });
     saveCart(cart); renderCart();
   }
 
   function openCheckout() {
+    if (!isShopOpen()) return alert('Food2Suit is currently closed for new orders. Our regular hours are 8:00 AM to 6:00 PM.');
     if (!getCart().length) return alert('Your tray is empty.');
     if (!location.pathname.endsWith('/checkout.html')) location.href = 'checkout.html';
   }
@@ -54,6 +75,7 @@
 
   function closeCustomizer() { document.getElementById('sf-customizer')?.classList.remove('open'); }
   function addProduct(product) {
+    if (!isShopOpen()) return alert('Food2Suit is currently closed for new orders. Our regular hours are 8:00 AM to 6:00 PM.');
     const options = (product.options || []).map(optionData);
     if (!options.length) return addToCart(product);
     const modal = document.getElementById('sf-customizer');
@@ -215,6 +237,7 @@
     normalizeOption: optionData,
     changeQty(cartId, delta) { const cart = getCart(); const item = cart.find(entry => entry.cartId === cartId); if (item) item.qty += delta; saveCart(cart.filter(entry => entry.qty > 0)); renderCart(); },
     toggleCart() { document.getElementById('sf-cart-drawer')?.classList.toggle('open'); },
+    isShopOpen,
     toggleTheme() { localStorage.setItem(THEME_KEY, document.documentElement.classList.contains('dark') ? 'light' : 'dark'); applyTheme(); }
   };
 
@@ -222,7 +245,7 @@
     if (!document.querySelector('link[href="enhancements.css"]')) document.head.insertAdjacentHTML('beforeend', '<link rel="stylesheet" href="enhancements.css">');
     if (!document.querySelector('link[href="footer-review.css"]')) document.head.insertAdjacentHTML('beforeend', '<link rel="stylesheet" href="footer-review.css">');
     if (!document.querySelector('link[href="guarantee.css"]')) document.head.insertAdjacentHTML('beforeend', '<link rel="stylesheet" href="guarantee.css">');
-    applyTheme(); ensureHeaderControls(); addHomeSections(); addGuaranteeSection(); addReviewForm(); upgradeReviewForm(); addFooter(); upgradeFooter(); applySharedContent(); addMobileNavigation(); makeFooterAnchorsWork();
+    applyTheme(); ensureHeaderControls(); addHomeSections(); addGuaranteeSection(); addReviewForm(); upgradeReviewForm(); addFooter(); upgradeFooter(); applySharedContent(); addMobileNavigation(); makeFooterAnchorsWork(); refreshShopStatus();
     if (location.pathname.endsWith('/offers.html')) document.body.classList.add('sf-offers');
     document.body.insertAdjacentHTML('beforeend', `<aside id="sf-cart-drawer" aria-label="Food tray"><div class="sf-cart-head"><b>Your Food Tray</b><button onclick="Food2Suit.toggleCart()" aria-label="Close">×</button></div><div id="sf-cart-items"></div><div class="sf-cart-foot"><span>Total</span><b id="sf-cart-total">GH₵ 0.00</b><button onclick="Food2Suit.checkout()">Checkout</button></div></aside><div id="sf-customizer" role="dialog" aria-modal="true"><div class="sf-customizer-backdrop" onclick="document.getElementById('sf-customizer').classList.remove('open')"></div><div class="sf-customizer-box"><button class="sf-modal-close" onclick="document.getElementById('sf-customizer').classList.remove('open')" aria-label="Close">×</button><div class="sf-customizer-layout"><div class="sf-customizer-media"><img id="sf-customizer-image" alt="Selected dish"></div><div><p class="sf-kicker">Make it yours</p><h2 id="sf-customizer-title"></h2><p id="sf-customizer-base"></p><div id="sf-customizer-options"></div><button id="sf-customizer-confirm" class="sf-confirm">Add to tray</button></div></div></div></div>`);
     renderCart();
