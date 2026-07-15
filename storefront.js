@@ -14,8 +14,26 @@
 
   const shopInfo = () => JSON.parse(localStorage.getItem('food2suit_registry_meta') || '{}');
   const isShopOpen = () => shopInfo().shopOpen !== false;
+  function syncOrderControls() {
+    const closed = !isShopOpen();
+    const selector = 'button[onclick*="handleAddToCartClick"], button[onclick*="handleFeaturedClick"], button[onclick*="Food2Suit.addProduct"], button[onclick*="Food2Suit.addToCart"], #modal-confirm-btn, #sf-customizer-confirm';
+    document.querySelectorAll(selector).forEach(button => {
+      if (closed) {
+        button.disabled = true;
+        button.dataset.sfOrderDisabled = 'true';
+        button.title = 'Food2Suit is currently closed for new orders.';
+        button.classList.add('opacity-50', 'cursor-not-allowed');
+      } else if (button.dataset.sfOrderDisabled === 'true') {
+        button.disabled = false;
+        delete button.dataset.sfOrderDisabled;
+        button.removeAttribute('title');
+        button.classList.remove('opacity-50', 'cursor-not-allowed');
+      }
+    });
+  }
   function showShopStatus() {
     document.getElementById('sf-shop-status')?.remove();
+    syncOrderControls();
     if (isShopOpen()) return;
     const hours = shopInfo().regularHours || 'Daily, 8:00 AM – 6:00 PM';
     document.body.insertAdjacentHTML('afterbegin', `<div id="sf-shop-status" role="status" style="position:sticky;top:0;z-index:60;background:#7c2d12;color:#fff;padding:10px 18px;text-align:center;font:700 13px system-ui">Food2Suit is currently closed for new orders. Regular hours: ${hours}.</div>`);
@@ -44,6 +62,7 @@
   }
 
   function addToCart(item) {
+    if (!isShopOpen()) return alert('Food2Suit is currently closed for new orders. Our regular hours are 8:00 AM to 6:00 PM.');
     const cart = getCart();
     const cartId = item.cartId || `${item.id}-${item.option || ''}`;
     const existing = cart.find(entry => entry.cartId === cartId);
@@ -235,7 +254,7 @@
     submitCheckout,
     formatMoney: money,
     normalizeOption: optionData,
-    changeQty(cartId, delta) { const cart = getCart(); const item = cart.find(entry => entry.cartId === cartId); if (item) item.qty += delta; saveCart(cart.filter(entry => entry.qty > 0)); renderCart(); },
+    changeQty(cartId, delta) { if (delta > 0 && !isShopOpen()) return alert('Food2Suit is currently closed for new orders.'); const cart = getCart(); const item = cart.find(entry => entry.cartId === cartId); if (item) item.qty += delta; saveCart(cart.filter(entry => entry.qty > 0)); renderCart(); },
     toggleCart() { document.getElementById('sf-cart-drawer')?.classList.toggle('open'); },
     isShopOpen,
     toggleTheme() { localStorage.setItem(THEME_KEY, document.documentElement.classList.contains('dark') ? 'light' : 'dark'); applyTheme(); }
@@ -250,5 +269,6 @@
     document.body.insertAdjacentHTML('beforeend', `<aside id="sf-cart-drawer" aria-label="Food tray"><div class="sf-cart-head"><b>Your Food Tray</b><button onclick="Food2Suit.toggleCart()" aria-label="Close">×</button></div><div id="sf-cart-items"></div><div class="sf-cart-foot"><span>Total</span><b id="sf-cart-total">GH₵ 0.00</b><button onclick="Food2Suit.checkout()">Checkout</button></div></aside><div id="sf-customizer" role="dialog" aria-modal="true"><div class="sf-customizer-backdrop" onclick="document.getElementById('sf-customizer').classList.remove('open')"></div><div class="sf-customizer-box"><button class="sf-modal-close" onclick="document.getElementById('sf-customizer').classList.remove('open')" aria-label="Close">×</button><div class="sf-customizer-layout"><div class="sf-customizer-media"><img id="sf-customizer-image" alt="Selected dish"></div><div><p class="sf-kicker">Make it yours</p><h2 id="sf-customizer-title"></h2><p id="sf-customizer-base"></p><div id="sf-customizer-options"></div><button id="sf-customizer-confirm" class="sf-confirm">Add to tray</button></div></div></div></div>`);
     renderCart();
     document.querySelector('#sf-cart-drawer .sf-cart-foot button').onclick = openCheckout;
+    new MutationObserver(() => { if (!isShopOpen()) syncOrderControls(); }).observe(document.body, { childList: true, subtree: true });
   });
 })();
