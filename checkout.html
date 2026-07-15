@@ -41,10 +41,10 @@
         <p id="delivery-hint" class="text-xs text-gray-500">We will confirm your pickup details by phone.</p>
         <input name="name" required placeholder="Your full name" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
         <input name="phone" required type="tel" inputmode="numeric" pattern="[0-9]{10}" maxlength="10" placeholder="Phone number (10 digits)" title="Enter a 10-digit phone number" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
-        <input name="email" type="email" pattern="[^\s@]+@[^\s@]+\.[A-Za-z]{2,}" placeholder="Email (optional)" title="Enter a valid email address, for example name@gmail.com" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
+        <input name="email" required type="email" pattern="[^\s@]+@[^\s@]+\.[A-Za-z]{2,}" placeholder="Email for payment receipt" title="Enter a valid email address, for example name@gmail.com" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
         <textarea id="address" name="address" rows="3" placeholder="Pickup notes (optional)" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3"></textarea>
         <textarea name="notes" rows="3" placeholder="Order notes (optional)" class="w-full rounded-xl border border-gray-200 bg-gray-50 px-4 py-3"></textarea>
-        <button type="submit" class="w-full bg-[#FF6B35] text-white font-extrabold py-3 rounded-xl hover:bg-[#e55a2b]">Place order</button>
+        <button type="submit" class="w-full bg-[#FF6B35] text-white font-extrabold py-3 rounded-xl hover:bg-[#e55a2b]">Continue to payment</button>
         <p id="checkout-status" class="text-sm text-gray-500" aria-live="polite"></p>
       </form>
       <aside class="bg-gray-950 text-white rounded-3xl p-7">
@@ -124,15 +124,16 @@
           selected_options: item.option ? [{ name: item.option }] : []
         })));
         if (itemsError) throw itemsError;
-        localStorage.setItem('food2suit_cart', '[]');
-        status.textContent = orderMethod === 'delivery' ? 'Order received! We will call you to confirm the delivery fee.' : 'Order received! We will contact you shortly.';
-        button.textContent = 'Order placed';
-        showSuccess();
+        const callbackUrl = new URL('payment-callback.html', location.href).href;
+        const { data: payment, error: paymentError } = await Food2SuitDB.client.functions.invoke('food2suit-paystack', { body: { action: 'initialize', order_id: orderId, callback_url: callbackUrl } });
+        if (paymentError || !payment?.authorization_url) throw paymentError || new Error('Could not open secure payment.');
+        status.textContent = 'Taking you to secure payment…';
+        location.href = payment.authorization_url;
       } catch (error) {
         console.error('Food2Suit order error:', error);
         status.textContent = 'We could not place your order. Please try again.';
         button.disabled = false;
-        button.textContent = 'Place order';
+        button.textContent = 'Continue to payment';
       }
     });
   </script>

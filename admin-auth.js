@@ -1,5 +1,9 @@
 /* Secure the static admin console with Supabase Auth and the staff RLS role. */
 (function () {
+  // Keep the admin portal protected while allowing a 30-minute inactive session.
+  const testingBypass = false;
+  if (testingBypass) return;
+
   const db = window.Food2SuitDB?.client;
   const inactivityMs = 30 * 60 * 1000;
   let inactivityTimer;

@@ -106,14 +106,29 @@
   function addReviewForm() {
     const homeExtras = document.getElementById('sf-home-extras');
     if (!homeExtras || document.getElementById('sf-review-form')) return;
-    homeExtras.insertAdjacentHTML('beforeend', `<section class="sf-review-form-wrap"><div><p class="sf-kicker">Share your experience</p><h2>Enjoyed your Food2Suit meal?</h2><p>Leave a short review for other customers.</p></div><form id="sf-review-form"><input id="sf-review-name" required maxlength="40" placeholder="Your name"><select id="sf-review-rating" aria-label="Rating"><option value="5">★★★★★ — 5 stars</option><option value="4">★★★★☆ — 4 stars</option><option value="3">★★★☆☆ — 3 stars</option></select><textarea id="sf-review-message" required maxlength="220" placeholder="Tell us about your meal"></textarea><button>Post review</button></form><div id="sf-user-reviews" class="sf-user-reviews"></div></section>`);
+    homeExtras.insertAdjacentHTML('beforeend', `<section class="sf-review-form-wrap"><div><p class="sf-kicker">Share your experience</p><h2>Enjoyed your Food2Suit meal?</h2><p>Leave a short review for other customers.</p></div><form id="sf-review-form"><input id="sf-review-name" required maxlength="40" placeholder="Your name"><select id="sf-review-rating" aria-label="Rating"><option value="5">★★★★★ — 5 stars</option><option value="4">★★★★☆ — 4 stars</option><option value="3">★★★☆☆ — 3 stars</option></select><textarea id="sf-review-message" required maxlength="220" placeholder="Tell us about your meal"></textarea><button>Post review</button></form></section>`);
     const reviewKey = 'food2suit_customer_reviews';
     const renderReviews = async () => {
       let reviews = JSON.parse(localStorage.getItem(reviewKey) || '[]');
       try {
         if (window.Food2SuitDB?.enabled) reviews = (await window.Food2SuitDB.approvedReviews()).map(review => ({ name: review.customer_name, rating: review.rating, message: review.message }));
       } catch (_) { /* The local display remains available when offline. */ }
-      document.getElementById('sf-user-reviews').innerHTML = reviews.slice(-3).reverse().map(review => `<article><b>${'★'.repeat(review.rating)}<span>${'★'.repeat(5 - review.rating)}</span></b><p>“${review.message.replace(/[<>&]/g, '')}”</p><small>— ${review.name.replace(/[<>&]/g, '')}</small></article>`).join('');
+      const testimonialGrid = document.querySelector('.sf-testimonial-grid');
+      if (!testimonialGrid) return;
+      testimonialGrid.querySelectorAll('[data-customer-review]').forEach(review => review.remove());
+      const emptyState = testimonialGrid.querySelector('#sf-no-reviews');
+      if (emptyState) emptyState.remove();
+      if (!reviews.length) {
+        testimonialGrid.innerHTML = '<p id="sf-no-reviews" class="sf-no-reviews">Approved customer reviews will appear here.</p>';
+        return;
+      }
+      testimonialGrid.insertAdjacentHTML('beforeend', reviews.slice(-3).reverse().map(review => {
+        const rating = Math.max(0, Math.min(5, Number(review.rating) || 0));
+        const stars = '★'.repeat(rating) + '☆'.repeat(5 - rating);
+        const message = String(review.message || '').replace(/[<>&]/g, '');
+        const name = String(review.name || 'Food2Suit customer').replace(/[<>&]/g, '');
+        return `<figure class="sf-customer-review" data-customer-review><b class="sf-review-stars" aria-label="${rating} out of 5 stars">${stars}</b><br>“${message}”<figcaption>— ${name}</figcaption></figure>`;
+      }).join(''));
     };
     document.getElementById('sf-review-form').addEventListener('submit', async event => {
       event.preventDefault();
@@ -188,7 +203,7 @@
     const onHome = /(^|\/)index\.html$/.test(location.pathname) || /Food2suit\.com\/$/.test(location.pathname);
     if (!onHome || document.getElementById('sf-home-extras')) return;
     const anchor = document.querySelector('#view-home') || document.querySelector('main');
-    anchor.insertAdjacentHTML('beforeend', `<div id="sf-home-extras" class="sf-home-extras"><section class="sf-about"><div><p class="sf-kicker">About Food2Suit</p><h2>Food that feels like home.</h2></div><p>From everyday meals to celebrations, Food2Suit brings trusted local flavour, quality ingredients, and warm service to every order.</p></section><section class="sf-testimonials"><p class="sf-kicker">Customer love</p><h2>What our customers say</h2><div class="sf-testimonial-grid"><figure>“The jollof was rich, smoky and arrived hot. I’ll definitely order again.”<figcaption>— Ama, Accra</figcaption></figure><figure>“Easy to order, generous portions, and the family pack was perfect.”<figcaption>— Kwesi, East Legon</figcaption></figure><figure>“Fresh food with thoughtful service every single time.”<figcaption>— Esi, Osu</figcaption></figure></div></section></div>`);
+    anchor.insertAdjacentHTML('beforeend', `<div id="sf-home-extras" class="sf-home-extras"><section class="sf-about"><div><p class="sf-kicker">About Food2Suit</p><h2>Food that feels like home.</h2></div><p>From everyday meals to celebrations, Food2Suit brings trusted local flavour, quality ingredients, and warm service to every order.</p></section><section class="sf-testimonials"><p class="sf-kicker">Customer love</p><h2>What our customers say</h2><div class="sf-testimonial-grid"><p id="sf-no-reviews" class="sf-no-reviews">Approved customer reviews will appear here.</p></div></section></div>`);
   }
 
   window.Food2Suit = {
