@@ -433,7 +433,7 @@
         async function sendTestOrderConfirmation(order) {
             const db = window.Food2SuitDB?.client;
             if (!db || !order) return;
-            const trackingUrl = new URL(`track-order.html?order=${encodeURIComponent(order.id)}`, location.href).href;
+            const trackingUrl = `https://quaysonjeffrey12-ui.github.io/Food2suit.com/track-order.html?order=${encodeURIComponent(order.id)}`;
             const items = (order.order_items || []).map(item => {
                 const side = Array.isArray(item.selected_options) && item.selected_options[0]?.name ? ` — ${item.selected_options[0].name}` : '';
                 return `<li style="margin:7px 0"><strong>${Number(item.quantity || 1)}× ${escapeEmailHtml(item.product_name)}</strong>${escapeEmailHtml(side)}</li>`;
