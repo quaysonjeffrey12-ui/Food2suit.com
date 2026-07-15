@@ -92,7 +92,7 @@
                 <p class="text-xs text-gray-400 mt-1">Live-configure branding parameters, text fields, banners, and primary support endpoints.</p>
             </div>
             <section class="bg-gray-950 border border-gray-800 rounded-3xl p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-xl shadow-black/40">
-                <div><p class="text-[10px] font-bold uppercase tracking-[.18em] text-orange-400">Shop status</p><h3 class="mt-1 text-base font-bold text-white">Food2Suit operates from 8:00 AM to 6:00 PM</h3><p class="mt-1 text-xs text-gray-400">Turn this off for an early close, a late opening, or any temporary closure.</p></div>
+                <div><p class="text-[10px] font-bold uppercase tracking-[.18em] text-orange-400">Shop status</p><h3 class="mt-1 text-base font-bold text-white">Food2Suit operates from 8:00 AM to 6:00 PM</h3><p class="mt-1 text-xs text-gray-400">Turn this off for an early close, a late opening, or any temporary closure. Closing saves the current session’s paid sales; reopening begins a fresh ledger.</p><p id="shop-session-summary" class="mt-2 text-[11px] text-gray-500"></p></div>
                 <label class="inline-flex items-center gap-3 rounded-2xl border border-gray-700 bg-gray-900 px-4 py-3 cursor-pointer"><input id="cfg-shop-open" type="checkbox" onchange="document.getElementById('cfg-shop-open-label').textContent=this.checked?'Open for orders':'Closed to new orders'" class="h-5 w-5 accent-emerald-500"><span id="cfg-shop-open-label" class="text-sm font-bold text-emerald-400">Open for orders</span></label>
             </section>
             <form onsubmit="handleSaveGlobalInfo(event)" class="bg-gray-950 border border-gray-800 rounded-3xl p-6 grid grid-cols-1 md:grid-cols-3 gap-5 shadow-xl shadow-black/40">
@@ -250,7 +250,7 @@
         <section id="panel-orders" class="admin-panel space-y-7 hidden-frame">
             <div class="border-b border-gray-800 pb-4"><h2 class="text-xl font-bold text-white tracking-tight">Orders Ledger</h2><p class="text-xs text-gray-400 mt-1">Track new, pending and completed orders with recorded dates and times.</p></div>
             <div id="order-summary" class="grid grid-cols-1 sm:grid-cols-3 gap-4"></div>
-            <div class="bg-gray-950 border border-gray-800 rounded-3xl overflow-hidden shadow-xl shadow-black/40"><div class="p-4 border-b border-gray-800 font-bold text-xs text-white uppercase tracking-wider">Order records</div><div class="overflow-x-auto"><table class="w-full border-collapse text-xs text-left"><thead><tr class="bg-gray-900 text-gray-400 border-b border-gray-800 font-bold uppercase text-[10px]"><th class="p-3">Date & time</th><th class="p-3">Customer</th><th class="p-3 min-w-[250px]">Order details</th><th class="p-3">Total</th><th class="p-3">Status</th></tr></thead><tbody id="orders-tbody" class="divide-y divide-gray-800/60"></tbody></table></div></div>
+            <div class="bg-gray-950 border border-gray-800 rounded-3xl overflow-hidden shadow-xl shadow-black/40"><div class="p-4 border-b border-gray-800 font-bold text-xs text-white uppercase tracking-wider">Order records for the current opening session</div><div class="overflow-x-auto"><table class="w-full border-collapse text-xs text-left"><thead><tr class="bg-gray-900 text-gray-400 border-b border-gray-800 font-bold uppercase text-[10px]"><th class="p-3">Date & time</th><th class="p-3">Customer</th><th class="p-3 min-w-[250px]">Order details</th><th class="p-3">Total</th><th class="p-3">Status</th></tr></thead><tbody id="orders-tbody" class="divide-y divide-gray-800/60"></tbody></table></div></div>
         </section>
 
         <section id="panel-inbox" class="admin-panel space-y-7 hidden-frame">
@@ -321,7 +321,7 @@
             heroTitle: "Authentic Meals, Made with Love", heroDesc: "From everyday lunches to unforgettable events, Food2Suit serves delicious meals with quality ingredients and care.",
             email: "hello@food2suit.com", phone: "+233 50 123 4567", address: "East Legon, Accra, Ghana",
             whatsapp: "233501234567", about: "From everyday meals to celebrations, Food2Suit brings trusted local flavour, quality ingredients, and warm service to every order.",
-            shopOpen: true, regularHours: "Daily, 8:00 AM – 6:00 PM"
+            shopOpen: true, regularHours: "Daily, 8:00 AM – 6:00 PM", businessDayStartedAt: null, salesHistory: []
         };
 
         const cloudCategory = category => ({ traditional: 'local', local: 'local', salads: 'salads_sides', sides: 'drinks', drinks: 'drinks', proteins: 'proteins', rice: 'rice' })[category] || 'local';
@@ -365,13 +365,14 @@
             if (!db) { target.innerHTML = '<tr><td colspan="5" class="p-6 text-center text-gray-500">Order service unavailable.</td></tr>'; return; }
             const { data: orders, error } = await db.from('orders').select('*, order_items(*)').order('created_at', { ascending: false });
             if (error) { target.innerHTML = '<tr><td colspan="5" class="p-6 text-center text-red-400">Unable to load orders.</td></tr>'; return; }
+            const sessionStart = DATA_INFO.businessDayStartedAt ? new Date(DATA_INFO.businessDayStartedAt) : null;
+            const sessionOrders = sessionStart && !Number.isNaN(sessionStart.valueOf()) ? (orders || []).filter(order => new Date(order.created_at) >= sessionStart) : (orders || []);
             const groups = { pending: 0, active: 0, completed: 0 };
-            (orders || []).forEach(order => { if (order.status === 'completed') groups.completed++; else if (order.status === 'pending') groups.pending++; else groups.active++; });
-            const today = new Date().toDateString();
-            const todaySales = (orders || []).filter(order => new Date(order.created_at).toDateString() === today && order.status !== 'cancelled').reduce((total, order) => total + Number(order.total || 0), 0);
-            summary.innerHTML = [['New orders', groups.pending, 'text-orange-400'], ['In progress', groups.active, 'text-blue-400'], ['Finished', groups.completed, 'text-emerald-400'], ['Sales today', `GH&#8373; ${todaySales.toFixed(2)}`, 'text-violet-400']].map(([label, value, color]) => `<article class="bg-gray-950 border border-gray-800 rounded-2xl p-5"><p class="text-xs text-gray-400">${label}</p><b class="text-3xl ${color}">${value}</b></article>`).join('');
+            sessionOrders.forEach(order => { if (order.status === 'completed') groups.completed++; else if (order.status === 'pending') groups.pending++; else groups.active++; });
+            const sessionSales = sessionOrders.filter(order => order.status !== 'cancelled' && order.payment_status === 'paid').reduce((total, order) => total + Number(order.total || 0), 0);
+            summary.innerHTML = [['New orders', groups.pending, 'text-orange-400'], ['In progress', groups.active, 'text-blue-400'], ['Finished', groups.completed, 'text-emerald-400'], ['Paid sales this session', `GH&#8373; ${sessionSales.toFixed(2)}`, 'text-violet-400']].map(([label, value, color]) => `<article class="bg-gray-950 border border-gray-800 rounded-2xl p-5"><p class="text-xs text-gray-400">${label}</p><b class="text-3xl ${color}">${value}</b></article>`).join('');
             const labels = { pending:'Pending', confirmed:'Confirmed', preparing:'Preparing order', looking_for_rider:'Looking for rider', out_for_delivery:'Out for delivery' };
-            target.innerHTML = (orders || []).map(order => {
+            target.innerHTML = sessionOrders.map(order => {
                 const when = new Date(order.created_at).toLocaleString();
                 const delivery = /Method:\s*Delivery/i.test(order.notes || '');
                 const steps = delivery ? ['pending','confirmed','preparing','looking_for_rider','out_for_delivery','completed'] : ['pending','confirmed','preparing','completed'];
@@ -574,6 +575,16 @@
             const shopOpen = DATA_INFO.shopOpen !== false;
             document.getElementById('cfg-shop-open').checked = shopOpen;
             document.getElementById('cfg-shop-open-label').textContent = shopOpen ? 'Open for orders' : 'Closed to new orders';
+            const sessionSummary = document.getElementById('shop-session-summary');
+            const history = Array.isArray(DATA_INFO.salesHistory) ? DATA_INFO.salesHistory : [];
+            const lastClose = history[history.length - 1];
+            if (lastClose) {
+                sessionSummary.textContent = `Last saved session: GH₵ ${Number(lastClose.total || 0).toFixed(2)} from ${Number(lastClose.orderCount || 0)} paid order(s), closed ${new Date(lastClose.closedAt).toLocaleString()}.`;
+            } else if (DATA_INFO.businessDayStartedAt) {
+                sessionSummary.textContent = `Current session began ${new Date(DATA_INFO.businessDayStartedAt).toLocaleString()}.`;
+            } else {
+                sessionSummary.textContent = 'Save these settings once to begin tracking sales sessions.';
+            }
         }
 
         function renderRegistryGridTable() {
@@ -754,8 +765,21 @@
             e.target.reset();
         }
 
-        function handleSaveGlobalInfo(e) {
+        async function handleSaveGlobalInfo(e) {
             e.preventDefault();
+            const wasOpen = DATA_INFO.shopOpen !== false;
+            const willBeOpen = document.getElementById('cfg-shop-open').checked;
+            const now = new Date().toISOString();
+            const businessDayStartedAt = DATA_INFO.businessDayStartedAt || now;
+            const salesHistory = Array.isArray(DATA_INFO.salesHistory) ? [...DATA_INFO.salesHistory] : [];
+            if (wasOpen && !willBeOpen) {
+                const db = window.Food2SuitDB?.client;
+                if (db) {
+                    const { data: sessionOrders } = await db.from('orders').select('total,status,payment_status,created_at').gte('created_at', businessDayStartedAt);
+                    const paidOrders = (sessionOrders || []).filter(order => order.status !== 'cancelled' && order.payment_status === 'paid');
+                    salesHistory.push({ startedAt: businessDayStartedAt, closedAt: now, orderCount: paidOrders.length, total: paidOrders.reduce((sum, order) => sum + Number(order.total || 0), 0) });
+                }
+            }
             DATA_INFO = {
                 brandName: document.getElementById('cfg-brand').value,
                 motto: document.getElementById('cfg-motto').value,
@@ -767,11 +791,16 @@
                 address: document.getElementById('cfg-address').value,
                 whatsapp: document.getElementById('cfg-whatsapp').value,
                 about: document.getElementById('cfg-about').value,
-                shopOpen: document.getElementById('cfg-shop-open').checked,
-                regularHours: 'Daily, 8:00 AM – 6:00 PM'
+                shopOpen: willBeOpen,
+                regularHours: 'Daily, 8:00 AM – 6:00 PM',
+                businessDayStartedAt: !wasOpen && willBeOpen ? now : businessDayStartedAt,
+                salesHistory: salesHistory.slice(-90)
             };
             localStorage.setItem('food2suit_registry_meta', JSON.stringify(DATA_INFO));
-            syncCloudData();
+            cloudDigest = '';
+            await syncCloudData();
+            hydrateFormInputs();
+            renderOrders();
             alert(`Storefront settings saved. Food2Suit is now ${DATA_INFO.shopOpen ? 'open' : 'closed'} for new orders.`);
         }
 
