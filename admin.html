@@ -251,6 +251,7 @@
             <div class="border-b border-gray-800 pb-4"><h2 class="text-xl font-bold text-white tracking-tight">Orders Ledger</h2><p class="text-xs text-gray-400 mt-1">Track new, pending and completed orders with recorded dates and times.</p></div>
             <div id="order-summary" class="grid grid-cols-1 sm:grid-cols-3 gap-4"></div>
             <div class="bg-gray-950 border border-gray-800 rounded-3xl overflow-hidden shadow-xl shadow-black/40"><div class="p-4 border-b border-gray-800 font-bold text-xs text-white uppercase tracking-wider">Order records for the current opening session</div><div class="overflow-x-auto"><table class="w-full border-collapse text-xs text-left"><thead><tr class="bg-gray-900 text-gray-400 border-b border-gray-800 font-bold uppercase text-[10px]"><th class="p-3">Date & time</th><th class="p-3">Customer</th><th class="p-3 min-w-[250px]">Order details</th><th class="p-3">Total</th><th class="p-3">Status</th></tr></thead><tbody id="orders-tbody" class="divide-y divide-gray-800/60"></tbody></table></div></div>
+            <section class="space-y-4"><div><h3 class="text-lg font-bold text-white">Sales history</h3><p class="text-xs text-gray-400 mt-1">Paid sales and Paystack charges, grouped by Accra business date.</p></div><div id="sales-history-summary" class="grid grid-cols-1 sm:grid-cols-3 gap-4"></div><div class="bg-gray-950 border border-gray-800 rounded-3xl overflow-hidden shadow-xl shadow-black/40"><div class="overflow-x-auto"><table class="w-full border-collapse text-xs text-left"><thead><tr class="bg-gray-900 text-gray-400 border-b border-gray-800 font-bold uppercase text-[10px]"><th class="p-3">Business date</th><th class="p-3">Paid orders</th><th class="p-3">Gross sales</th><th class="p-3">Paystack fees</th><th class="p-3">Net sales</th></tr></thead><tbody id="sales-history-tbody" class="divide-y divide-gray-800/60"></tbody></table></div></div><p class="text-[11px] text-gray-500">Paystack fees are captured from payments verified after this update. Older paid orders may show GH₵ 0.00 until reconciled.</p></section>
         </section>
 
         <section id="panel-inbox" class="admin-panel space-y-7 hidden-frame">
@@ -404,6 +405,31 @@
                 const cancel = !['completed', 'cancelled'].includes(current) ? `<button onclick="cancelOrder('${order.id}')" class="mt-2 block text-[11px] font-bold text-red-400 hover:text-red-300">Cancel order</button>` : '';
                 return `<tr class="ledger-row"><td class="p-3 text-gray-300">${when}<small class="mt-1 block text-[10px] text-gray-500">#${escapeEmailHtml(String(order.id).slice(0, 8).toUpperCase())}</small></td><td class="p-3 text-white font-bold">${escapeEmailHtml(order.customer_name || 'Guest')}<small class="mt-1 block text-gray-400 font-normal">${contact}</small><small class="mt-1 block text-gray-500 font-normal">${fulfilment}</small>${customerNotes ? `<small class="mt-2 block text-gray-400 font-normal">Note: ${escapeEmailHtml(customerNotes)}</small>` : ''}</td><td class="p-3 text-gray-200"><ul class="space-y-2">${items}</ul></td><td class="p-3 text-emerald-400 font-bold">GH&#8373; ${Number(order.total || 0).toFixed(2)}<small class="mt-1 block text-[10px] ${order.payment_status === 'paid' ? 'text-emerald-300' : 'text-amber-300'}">${payment}</small></td><td class="p-3"><b class="block text-xs text-white">${statusLabel}</b>${next ? `<button onclick="advanceOrder('${order.id}','${current}',${delivery})" class="mt-1 text-[11px] font-bold text-orange-400 hover:text-orange-300">Mark ${labels[next] || (delivery ? 'Delivered' : 'Picked up / done')} &rarr;</button>` : ''}${resend}${cancel}</td></tr>`;
             }).join('') || '<tr><td colspan="5" class="p-6 text-center text-gray-500">No orders recorded yet.</td></tr>';
+            renderSalesHistory(orders || []);
+        }
+        function renderSalesHistory(orders) {
+            const summary = document.getElementById('sales-history-summary'), target = document.getElementById('sales-history-tbody');
+            if (!summary || !target) return;
+            const dateForOrder = value => {
+                const parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Africa/Accra', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date(value));
+                const date = Object.fromEntries(parts.filter(part => part.type !== 'literal').map(part => [part.type, part.value]));
+                return `${date.year}-${date.month}-${date.day}`;
+            };
+            const paidOrders = orders.filter(order => order.payment_status === 'paid' && order.status !== 'cancelled');
+            const totals = paidOrders.reduce((sum, order) => ({ gross: sum.gross + Number(order.total || 0), fees: sum.fees + Number(order.payment_fee || 0) }), { gross: 0, fees: 0 });
+            summary.innerHTML = [['All-time paid sales', totals.gross, 'text-emerald-400'], ['Paystack fees recorded', totals.fees, 'text-orange-400'], ['Net after fees', totals.gross - totals.fees, 'text-sky-400']].map(([label, total, color]) => `<article class="bg-gray-950 border border-gray-800 rounded-2xl p-5"><p class="text-xs text-gray-400">${label}</p><b class="text-2xl ${color}">GH&#8373; ${Number(total).toFixed(2)}</b></article>`).join('');
+            const history = paidOrders.reduce((days, order) => {
+                const key = dateForOrder(order.created_at);
+                if (!days[key]) days[key] = { count: 0, gross: 0, fees: 0 };
+                days[key].count += 1;
+                days[key].gross += Number(order.total || 0);
+                days[key].fees += Number(order.payment_fee || 0);
+                return days;
+            }, {});
+            target.innerHTML = Object.entries(history).sort(([a], [b]) => b.localeCompare(a)).map(([date, totals]) => {
+                const label = new Date(`${date}T12:00:00+00:00`).toLocaleDateString('en-GB', { day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Africa/Accra' });
+                return `<tr><td class="p-3 font-bold text-white">${label}</td><td class="p-3 text-gray-300">${totals.count}</td><td class="p-3 font-bold text-emerald-400">GH&#8373; ${totals.gross.toFixed(2)}</td><td class="p-3 text-orange-300">GH&#8373; ${totals.fees.toFixed(2)}</td><td class="p-3 font-bold text-sky-300">GH&#8373; ${(totals.gross - totals.fees).toFixed(2)}</td></tr>`;
+            }).join('') || '<tr><td colspan="5" class="p-6 text-center text-gray-500">No paid sales have been recorded yet.</td></tr>';
         }
         async function updateOrderStatus(id, status) { const { error } = await window.Food2SuitDB.client.from('orders').update({ status }).eq('id', id); if (!error) renderOrders(); }
         function escapeEmailHtml(value) {

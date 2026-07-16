@@ -38,7 +38,8 @@ async function markPaid(transaction: Record<string, unknown>) {
   const { data: order, error } = await db.from('orders').select('id,total').eq('id', orderId).maybeSingle();
   if (error || !order) throw new Error('The linked order could not be found.');
   if (Math.round(Number(order.total) * 100) !== Number(transaction.amount)) throw new Error('Payment amount does not match the order.');
-  const { error: updateError } = await db.from('orders').update({ payment_status: 'paid', payment_reference: reference }).eq('id', orderId);
+  const fee = Math.max(0, Number(transaction.fees || 0) / 100);
+  const { error: updateError } = await db.from('orders').update({ payment_status: 'paid', payment_reference: reference, payment_fee: fee, payment_net: Math.max(0, Number(order.total) - fee) }).eq('id', orderId);
   if (updateError) throw new Error('Payment was verified but the order could not be updated.');
   return orderId;
 }
