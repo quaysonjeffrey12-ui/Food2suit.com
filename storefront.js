@@ -38,13 +38,21 @@
       }
     });
   }
-  function showShopStatus() {
-    document.getElementById('sf-shop-status')?.remove();
-    syncOrderControls();
-    if (isShopOpen()) return;
-    const hours = shopInfo().regularHours || 'Daily, 8:00 AM – 6:00 PM';
-    document.body.insertAdjacentHTML('afterbegin', `<div id="sf-shop-status" role="status" style="position:sticky;top:0;z-index:60;background:#7c2d12;color:#fff;padding:10px 18px;text-align:center;font:700 13px system-ui">Food2Suit is currently closed for new orders. Regular hours: ${hours}.</div>`);
+function showShopStatus() {
+  document.getElementById('sf-shop-status')?.remove();
+  const header = document.querySelector('header');
+  header?.style.removeProperty('top');
+  syncOrderControls();
+  if (isShopOpen()) return;
+  const hours = shopInfo().regularHours || 'Daily, 8:00 AM – 6:00 PM';
+  document.body.insertAdjacentHTML('afterbegin', `<div id="sf-shop-status" role="status" style="position:relative;z-index:60;background:#7c2d12;color:#fff;padding:10px 18px;text-align:center;font:700 13px system-ui">Food2Suit is currently closed for new orders. Regular hours: ${hours}.</div>`);
+  const statusBar = document.getElementById('sf-shop-status');
+  // The home header is absolutely positioned over the hero. Move it below the
+  // notice so the notice remains above the navigation rather than covering it.
+  if (header && getComputedStyle(header).position === 'absolute') {
+    header.style.top = `${statusBar?.offsetHeight || 0}px`;
   }
+}
   async function refreshShopStatus() {
     const client = window.Food2SuitDB?.client;
     if (!client) return showShopStatus();
