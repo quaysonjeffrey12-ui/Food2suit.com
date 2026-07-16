@@ -44,6 +44,24 @@ async function markPaid(transaction: Record<string, unknown>) {
   return orderId;
 }
 
+async function refundOrder(orderId: string) {
+  const { data: order, error } = await db.from('orders').select('id,total,payment_status,payment_reference,refund_status').eq('id', orderId).maybeSingle();
+  if (error || !order) throw new Error('Order not found.');
+  if (order.payment_status !== 'paid' || !order.payment_reference) throw new Error('Only a paid order can be refunded.');
+  if (order.refund_status === 'pending' || order.refund_status === 'processed') throw new Error('A refund has already been requested for this order.');
+  const response = await fetch('https://api.paystack.co/refund', {
+    method: 'POST',
+    headers: { Authorization: `Bearer ${paystackKey}`, 'Content-Type': 'application/json' },
+    body: JSON.stringify({ transaction: order.payment_reference }),
+  });
+  const result = await response.json();
+  if (!response.ok || !result.status) throw new Error(result.message || 'Paystack could not start the refund.');
+  const refund = result.data || {};
+  const { error: updateError } = await db.from('orders').update({ status: 'cancelled', refund_status: refund.status || 'pending', refund_reference: String(refund.id || ''), refund_amount: Number(order.total || 0), refunded_at: new Date().toISOString() }).eq('id', orderId);
+  if (updateError) throw new Error('Paystack accepted the refund but the order record could not be updated.');
+  return { refund_status: refund.status || 'pending' };
+}
+
 Deno.serve(async req => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (!paystackKey) return json({ error: 'Payment service is not configured.' }, 500);
@@ -78,6 +96,10 @@ Deno.serve(async req => {
       if (transaction.status !== 'success') return json({ paid: false, message: 'Payment has not been completed yet.' });
       const orderId = await markPaid(transaction);
       return json({ paid: true, order_id: orderId });
+    }
+    if (body.action === 'refund') {
+      const result = await refundOrder(String(body.order_id || ''));
+      return json({ refunded: true, ...result });
     }
     return json({ error: 'Unknown payment action.' }, 400);
   } catch (error) {
