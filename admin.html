@@ -324,6 +324,18 @@
             shopOpen: true, regularHours: "Daily, 8:00 AM – 6:00 PM", businessDayStartedAt: null, salesHistory: []
         };
 
+        function ghanaTimeParts() {
+            const parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Africa/Accra', year: 'numeric', month: '2-digit', day: '2-digit' }).formatToParts(new Date());
+            return Object.fromEntries(parts.filter(part => part.type !== 'literal').map(part => [part.type, part.value]));
+        }
+        function ghanaDateKey() { const time = ghanaTimeParts(); return `${time.year}-${time.month}-${time.day}`; }
+        function scheduledBusinessStart() { const time = ghanaTimeParts(); return new Date(`${time.year}-${time.month}-${time.day}T08:00:00+00:00`); }
+        function currentSessionStart() {
+            const scheduled = scheduledBusinessStart();
+            const saved = DATA_INFO?.businessDayStartedAt ? new Date(DATA_INFO.businessDayStartedAt) : null;
+            return saved && !Number.isNaN(saved.valueOf()) && saved > scheduled ? saved : scheduled;
+        }
+
         const cloudCategory = category => ({ traditional: 'local', local: 'local', salads: 'salads_sides', sides: 'drinks', drinks: 'drinks', proteins: 'proteins', rice: 'rice' })[category] || 'local';
         const browserCategory = category => ({ salads_sides: 'salads', local: 'local', drinks: 'drinks', proteins: 'proteins', rice: 'rice' })[category] || 'local';
         let cloudDigest = '';
@@ -365,8 +377,8 @@
             if (!db) { target.innerHTML = '<tr><td colspan="5" class="p-6 text-center text-gray-500">Order service unavailable.</td></tr>'; return; }
             const { data: orders, error } = await db.from('orders').select('*, order_items(*)').order('created_at', { ascending: false });
             if (error) { target.innerHTML = '<tr><td colspan="5" class="p-6 text-center text-red-400">Unable to load orders.</td></tr>'; return; }
-            const sessionStart = DATA_INFO.businessDayStartedAt ? new Date(DATA_INFO.businessDayStartedAt) : null;
-            const sessionOrders = sessionStart && !Number.isNaN(sessionStart.valueOf()) ? (orders || []).filter(order => new Date(order.created_at) >= sessionStart) : (orders || []);
+            const sessionStart = currentSessionStart();
+            const sessionOrders = (orders || []).filter(order => new Date(order.created_at) >= sessionStart);
             const groups = { pending: 0, active: 0, completed: 0 };
             sessionOrders.forEach(order => { if (order.status === 'completed') groups.completed++; else if (order.status === 'pending') groups.pending++; else groups.active++; });
             const sessionSales = sessionOrders.filter(order => order.status !== 'cancelled' && order.payment_status === 'paid').reduce((total, order) => total + Number(order.total || 0), 0);
@@ -572,18 +584,18 @@
             document.getElementById('cfg-address').value = DATA_INFO.address || '';
             document.getElementById('cfg-whatsapp').value = DATA_INFO.whatsapp || '';
             document.getElementById('cfg-about').value = DATA_INFO.about || '';
-            const shopOpen = DATA_INFO.shopOpen !== false;
+            const shopOpen = DATA_INFO.shopOpen !== false || DATA_INFO.manualClosedOn !== ghanaDateKey();
             document.getElementById('cfg-shop-open').checked = shopOpen;
             document.getElementById('cfg-shop-open-label').textContent = shopOpen ? 'Open for orders' : 'Closed to new orders';
             const sessionSummary = document.getElementById('shop-session-summary');
             const history = Array.isArray(DATA_INFO.salesHistory) ? DATA_INFO.salesHistory : [];
             const lastClose = history[history.length - 1];
             if (lastClose) {
-                sessionSummary.textContent = `Last saved session: GH₵ ${Number(lastClose.total || 0).toFixed(2)} from ${Number(lastClose.orderCount || 0)} paid order(s), closed ${new Date(lastClose.closedAt).toLocaleString()}.`;
+                sessionSummary.textContent = `Last saved session: GH₵ ${Number(lastClose.total || 0).toFixed(2)} from ${Number(lastClose.orderCount || 0)} paid order(s), closed ${new Date(lastClose.closedAt).toLocaleString()}. View today’s live total in Orders Ledger.`;
             } else if (DATA_INFO.businessDayStartedAt) {
-                sessionSummary.textContent = `Current session began ${new Date(DATA_INFO.businessDayStartedAt).toLocaleString()}.`;
+                sessionSummary.textContent = `Today’s live sales total is shown in Orders Ledger. Current session began ${new Date(DATA_INFO.businessDayStartedAt).toLocaleString()}.`;
             } else {
-                sessionSummary.textContent = 'Save these settings once to begin tracking sales sessions.';
+                sessionSummary.textContent = 'Today’s live sales total is shown in Orders Ledger. Save these settings once to begin tracking sales sessions.';
             }
         }
 
@@ -767,10 +779,10 @@
 
         async function handleSaveGlobalInfo(e) {
             e.preventDefault();
-            const wasOpen = DATA_INFO.shopOpen !== false;
+            const wasOpen = DATA_INFO.shopOpen !== false || DATA_INFO.manualClosedOn !== ghanaDateKey();
             const willBeOpen = document.getElementById('cfg-shop-open').checked;
             const now = new Date().toISOString();
-            const businessDayStartedAt = DATA_INFO.businessDayStartedAt || now;
+            const businessDayStartedAt = currentSessionStart().toISOString();
             const salesHistory = Array.isArray(DATA_INFO.salesHistory) ? [...DATA_INFO.salesHistory] : [];
             if (wasOpen && !willBeOpen) {
                 const db = window.Food2SuitDB?.client;
@@ -792,6 +804,7 @@
                 whatsapp: document.getElementById('cfg-whatsapp').value,
                 about: document.getElementById('cfg-about').value,
                 shopOpen: willBeOpen,
+                manualClosedOn: willBeOpen ? null : ghanaDateKey(),
                 regularHours: 'Daily, 8:00 AM – 6:00 PM',
                 businessDayStartedAt: !wasOpen && willBeOpen ? now : businessDayStartedAt,
                 salesHistory: salesHistory.slice(-90)

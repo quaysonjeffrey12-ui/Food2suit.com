@@ -13,7 +13,14 @@
   }
 
   const shopInfo = () => JSON.parse(localStorage.getItem('food2suit_registry_meta') || '{}');
-  const isShopOpen = () => shopInfo().shopOpen !== false;
+  function ghanaTime() {
+    const parts = new Intl.DateTimeFormat('en-GB', { timeZone: 'Africa/Accra', year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', hourCycle: 'h23' }).formatToParts(new Date());
+    return Object.fromEntries(parts.filter(part => part.type !== 'literal').map(part => [part.type, part.value]));
+  }
+  const ghanaDateKey = () => { const time = ghanaTime(); return `${time.year}-${time.month}-${time.day}`; };
+  const isWithinBusinessHours = () => { const hour = Number(ghanaTime().hour); return hour >= 8 && hour < 18; };
+  const isManuallyClosedToday = () => { const info = shopInfo(); return info.shopOpen === false && info.manualClosedOn === ghanaDateKey(); };
+  const isShopOpen = () => isWithinBusinessHours() && !isManuallyClosedToday();
   function syncOrderControls() {
     const closed = !isShopOpen();
     const selector = 'button[onclick*="handleAddToCartClick"], button[onclick*="handleFeaturedClick"], button[onclick*="Food2Suit.addProduct"], button[onclick*="Food2Suit.addToCart"], #modal-confirm-btn, #sf-customizer-confirm';
