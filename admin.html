@@ -776,7 +776,7 @@
             const db = window.Food2SuitDB?.client;
             if (!db) throw new Error('Image storage is unavailable.');
             if (!file || !/^image\/(jpeg|png|webp)$/.test(file.type)) throw new Error('Choose a JPG, PNG, or WebP image.');
-            if (file.size > 5 * 1024 * 1024) throw new Error('Please choose an image smaller than 5 MB.');
+            if (file.size > 10 * 1024 * 1024) throw new Error('Please choose an image smaller than 10 MB.');
             const extension = file.name.split('.').pop()?.toLowerCase() || 'jpg';
             const filePath = `${path}/${Date.now()}-${crypto.randomUUID()}.${extension}`;
             const { error } = await db.storage.from('dish-images').upload(filePath, file, { cacheControl: '31536000', contentType: file.type, upsert: false });
