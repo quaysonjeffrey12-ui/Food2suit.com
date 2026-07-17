@@ -4,6 +4,9 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Food2Suit Management Console</title>
+    <meta name="theme-color" content="#111827">
+    <link rel="manifest" href="admin.webmanifest">
+    <link rel="apple-touch-icon" href="app-icon.svg">
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-client.js"></script>
@@ -77,7 +80,8 @@
             <button onclick="switchAdminTab('inbox');renderInbox()" id="tab-btn-inbox" class="tab-link w-full text-left flex items-center gap-3 px-4 py-3 rounded-xl text-xs font-bold transition-all duration-300 text-gray-400 hover:bg-gray-900 hover:text-white whitespace-nowrap">Inbox</button>
         </nav>
 
-        <div class="p-4 border-t border-gray-800/60 hidden md:block">
+        <div class="p-4 border-t border-gray-800/60 space-y-2">
+            <button id="admin-alert-toggle" onclick="enableAdminOrderAlerts()" class="w-full rounded-xl border border-orange-800/60 bg-orange-950/20 px-3 py-2 text-[10px] font-bold text-orange-300 transition hover:bg-orange-900/40">Enable new-order alerts</button>
             <button onclick="wipeAndResetAll()" class="w-full bg-red-950/20 text-red-400 hover:bg-red-950/60 border border-red-900/40 text-[10px] py-2 rounded-xl transition-all duration-200 active:scale-95 font-semibold text-center">
                 Wipe & Reset System
             </button>
@@ -380,6 +384,7 @@
             if (!db) { target.innerHTML = '<tr><td colspan="5" class="p-6 text-center text-gray-500">Order service unavailable.</td></tr>'; return; }
             const { data: orders, error } = await db.from('orders').select('*, order_items(*)').order('created_at', { ascending: false });
             if (error) { target.innerHTML = '<tr><td colspan="5" class="p-6 text-center text-red-400">Unable to load orders.</td></tr>'; return; }
+            (orders || []).forEach(order => adminKnownOrderIds.add(String(order.id)));
             const sessionStart = currentSessionStart();
             const sessionOrders = (orders || []).filter(order => new Date(order.created_at) >= sessionStart);
             const groups = { pending: 0, active: 0, completed: 0 };
@@ -549,9 +554,80 @@
                 refreshTimer = setTimeout(renderOrders, 180);
             };
             window.food2suitOrderSubscription = db.channel('food2suit-order-ledger')
-                .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, refresh)
+                .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'orders' }, payload => { alertStaffOfNewOrder(payload.new); refresh(); })
+                .on('postgres_changes', { event: 'UPDATE', schema: 'public', table: 'orders' }, refresh)
+                .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'orders' }, refresh)
                 .on('postgres_changes', { event: '*', schema: 'public', table: 'order_items' }, refresh)
                 .subscribe();
+        }
+
+        const adminKnownOrderIds = new Set();
+        let adminOrderAlertsReady = false;
+        let adminAlertAudioContext;
+        let adminAlertTimer;
+
+        function refreshAdminAlertButton() {
+            const button = document.getElementById('admin-alert-toggle');
+            if (!button) return;
+            const enabled = localStorage.getItem('food2suit_admin_order_alerts') === 'enabled';
+            button.textContent = enabled ? 'New-order alerts enabled' : 'Enable new-order alerts';
+            button.classList.toggle('text-emerald-300', enabled);
+            button.classList.toggle('border-emerald-800/60', enabled);
+        }
+
+        async function enableAdminOrderAlerts() {
+            localStorage.setItem('food2suit_admin_order_alerts', 'enabled');
+            try {
+                if ('Notification' in window && Notification.permission === 'default') await Notification.requestPermission();
+                adminAlertAudioContext = adminAlertAudioContext || new (window.AudioContext || window.webkitAudioContext)();
+                await adminAlertAudioContext.resume();
+            } catch (_) { /* Sound depends on the browser's audio permission. */ }
+            refreshAdminAlertButton();
+            alert('New-order alerts are enabled. Keep this admin page or installed app open during service hours.');
+        }
+
+        function ringNewOrder() {
+            if (localStorage.getItem('food2suit_admin_order_alerts') !== 'enabled') return;
+            try {
+                const Context = window.AudioContext || window.webkitAudioContext;
+                if (!Context) return;
+                const context = adminAlertAudioContext || (adminAlertAudioContext = new Context());
+                const now = context.currentTime;
+                [0, .22, .44].forEach((offset, index) => {
+                    const oscillator = context.createOscillator();
+                    const gain = context.createGain();
+                    oscillator.type = 'sine';
+                    oscillator.frequency.value = index === 1 ? 880 : 660;
+                    gain.gain.setValueAtTime(.0001, now + offset);
+                    gain.gain.exponentialRampToValueAtTime(.12, now + offset + .015);
+                    gain.gain.exponentialRampToValueAtTime(.0001, now + offset + .16);
+                    oscillator.connect(gain).connect(context.destination);
+                    oscillator.start(now + offset);
+                    oscillator.stop(now + offset + .18);
+                });
+            } catch (_) { /* A browser may block sound until the staff member enables alerts. */ }
+        }
+
+        function hideAdminOrderAlert() {
+            clearTimeout(adminAlertTimer);
+            document.getElementById('admin-order-alert')?.classList.add('hidden');
+        }
+
+        function alertStaffOfNewOrder(order) {
+            if (!order?.id || adminKnownOrderIds.has(String(order.id))) return;
+            adminKnownOrderIds.add(String(order.id));
+            if (!adminOrderAlertsReady || order.status !== 'pending') return;
+            const customer = order.customer_name || 'a customer';
+            const total = Number(order.total || 0).toFixed(2);
+            const text = `${customer} placed an order for GH₵ ${total}.`;
+            document.getElementById('admin-order-alert-copy').textContent = text;
+            document.getElementById('admin-order-alert')?.classList.remove('hidden');
+            clearTimeout(adminAlertTimer);
+            adminAlertTimer = setTimeout(hideAdminOrderAlert, 15000);
+            ringNewOrder();
+            if (localStorage.getItem('food2suit_admin_order_alerts') === 'enabled' && 'Notification' in window && Notification.permission === 'granted') {
+                new Notification('Food2Suit: new order', { body: text, icon: 'app-icon.svg', tag: `food2suit-order-${order.id}` });
+            }
         }
         function subscribeInboxUpdates() {
             const db = window.Food2SuitDB?.client;
@@ -562,7 +638,7 @@
                 .subscribe();
         }
         window.addEventListener('load', () => { loadGlobalState(); setTimeout(loadCloudData, 800); setInterval(syncCloudData, 1800); });
-        window.addEventListener('load', () => { setTimeout(() => { subscribeOrderUpdates(); subscribeInboxUpdates(); renderOrders(); }, 1000); setInterval(renderOrders, 8000); });
+        window.addEventListener('load', () => { refreshAdminAlertButton(); setTimeout(async () => { await renderOrders(); adminOrderAlertsReady = true; subscribeOrderUpdates(); subscribeInboxUpdates(); }, 1000); setInterval(renderOrders, 8000); });
 
         function loadGlobalState() {
             const rawProducts = localStorage.getItem('food2suit_registry_products');
@@ -946,5 +1022,11 @@
             }
         }
     </script>
+    <aside id="admin-order-alert" class="pointer-events-none fixed right-4 top-4 z-[100] hidden w-[min(360px,calc(100vw-2rem))] rounded-2xl border border-orange-400/50 bg-gray-950 p-4 shadow-2xl shadow-black/60" role="alert" aria-live="assertive">
+        <p class="text-[10px] font-bold uppercase tracking-[.16em] text-orange-400">New order received</p>
+        <p id="admin-order-alert-copy" class="mt-1 text-sm font-bold text-white"></p>
+        <button type="button" onclick="switchAdminTab('orders');renderOrders();hideAdminOrderAlert()" class="pointer-events-auto mt-3 rounded-xl bg-orange-500 px-3 py-2 text-xs font-bold text-white transition hover:bg-orange-400">View order</button>
+    </aside>
+    <script src="admin-pwa.js"></script>
 </body>
 </html>
