@@ -1,0 +1,18 @@
+{
+  "name": "Food2Suit",
+  "short_name": "Food2Suit",
+  "description": "Order authentic meals from Food2Suit.",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "background_color": "#111827",
+  "theme_color": "#FF6B35",
+  "icons": [
+    {
+      "src": "app-icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

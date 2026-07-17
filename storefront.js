@@ -276,6 +276,10 @@ function showShopStatus() {
   };
 
   document.addEventListener('DOMContentLoaded', () => {
+    if (!document.querySelector('link[rel="manifest"]')) {
+      document.head.insertAdjacentHTML('beforeend', '<meta name="theme-color" content="#FF6B35"><link rel="manifest" href="site.webmanifest"><link rel="apple-touch-icon" href="app-icon.svg">');
+    }
+    if ('serviceWorker' in navigator) navigator.serviceWorker.register('push-service-worker.js').catch(() => {});
     if (!document.querySelector('link[href="enhancements.css"]')) document.head.insertAdjacentHTML('beforeend', '<link rel="stylesheet" href="enhancements.css">');
     if (!document.querySelector('link[href="footer-review.css"]')) document.head.insertAdjacentHTML('beforeend', '<link rel="stylesheet" href="footer-review.css">');
     if (!document.querySelector('link[href="guarantee.css"]')) document.head.insertAdjacentHTML('beforeend', '<link rel="stylesheet" href="guarantee.css">');

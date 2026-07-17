@@ -4,6 +4,9 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Track your order | Food2Suit</title>
+  <meta name="theme-color" content="#FF6B35">
+  <link rel="manifest" href="site.webmanifest">
+  <link rel="apple-touch-icon" href="app-icon.svg">
   <style>
     :root{color-scheme:light;font-family:Inter,Arial,sans-serif;background:#f7f7f8;color:#182033}*{box-sizing:border-box}body{margin:0;min-height:100vh;background:radial-gradient(circle at top right,#ffe5d9,transparent 30rem),#f7f7f8}.top{background:#111827;color:#fff;padding:20px max(5vw,24px);display:flex;justify-content:space-between;align-items:center}.brand{font-size:1.35rem;font-weight:800;color:#ff6b35}.brand small{display:block;color:#fff;font-size:.68rem;font-weight:500}.top a{color:#fff;text-decoration:none;font-weight:700}.shell{max-width:860px;margin:54px auto;padding:0 20px}.eyebrow{color:#ff6b35;text-transform:uppercase;letter-spacing:.12em;font-size:.72rem;font-weight:800}.card{background:#fff;border:1px solid #e5e7eb;border-radius:24px;padding:32px;box-shadow:0 18px 50px #17203312}.status{display:inline-flex;align-items:center;gap:8px;padding:9px 13px;background:#fff0eb;color:#d94816;border-radius:999px;font-size:.85rem;font-weight:800}.dot{width:9px;height:9px;background:#ff6b35;border-radius:50%;animation:pulse 1.3s infinite}.muted{color:#677083}.timeline{display:grid;gap:0;margin:30px 0}.step{display:flex;gap:15px;min-height:62px;color:#9ca3af}.marker{width:24px;display:flex;flex-direction:column;align-items:center}.circle{width:19px;height:19px;border:2px solid #d1d5db;border-radius:50%;background:#fff}.line{height:100%;width:2px;background:#e5e7eb}.step:last-child .line{display:none}.step.active{color:#182033;font-weight:700}.step.active .circle{border-color:#ff6b35;background:#ff6b35;box-shadow:0 0 0 5px #fff0eb}.step.done .circle{border-color:#ff6b35;background:#ff6b35}.step.done .circle:after{content:'✓';font-size:12px;color:#fff;display:block;text-align:center;line-height:15px}.items{padding:18px;background:#f9fafb;border-radius:16px}.item{display:flex;justify-content:space-between;gap:15px;padding:9px 0;border-bottom:1px solid #e5e7eb}.item:last-child{border:0}.error{background:#fff0f0;border-color:#fecaca;color:#991b1b}.hidden{display:none}@keyframes pulse{50%{transform:scale(1.5);opacity:.45}}@media(max-width:560px){.card{padding:24px}.shell{margin:30px auto}.top{padding:16px 20px}}
     .push-card{margin-top:18px;background:#172033;color:#fff;border-radius:20px;padding:22px}.push-card h2{margin:0 0 8px;font-size:18px}.push-card p{margin:0;color:#cbd5e1;font-size:14px;line-height:1.5}.push-card button{margin-top:15px;border:0;border-radius:10px;background:#ff6b35;color:#fff;font-weight:800;padding:11px 15px;cursor:pointer}.push-card button:disabled{opacity:.6;cursor:not-allowed}
@@ -34,5 +37,6 @@
     pushButton.addEventListener('click',enablePushUpdates);
     load();setInterval(load,15000);
   </script>
+  <script src="pwa.js"></script>
 </body>
 </html>
