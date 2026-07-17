@@ -1,5 +1,6 @@
 // Paystack secret stays in Supabase as PAYSTACK_SECRET_KEY. Never expose it to the storefront.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+import webpush from 'npm:web-push@3.6.7';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -13,6 +14,8 @@ const json = (body: Record<string, unknown>, status = 200) => new Response(JSON.
 });
 
 const paystackKey = Deno.env.get('PAYSTACK_SECRET_KEY') || '';
+const vapidPublicKey = Deno.env.get('VAPID_PUBLIC_KEY') || '';
+const vapidPrivateKey = Deno.env.get('VAPID_PRIVATE_KEY') || '';
 const db = createClient(Deno.env.get('SUPABASE_URL') || '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '');
 
 function callbackUrl(value: unknown) {
@@ -62,6 +65,40 @@ async function refundOrder(orderId: string) {
   return { refund_status: refund.status || 'pending' };
 }
 
+async function subscribeToOrderUpdates(orderId: string, subscription: Record<string, unknown>) {
+  const endpoint = String(subscription?.endpoint || '');
+  const keys = subscription?.keys as Record<string, unknown> | undefined;
+  const p256dh = String(keys?.p256dh || ''), auth = String(keys?.auth || '');
+  const { data: order, error } = await db.from('orders').select('id').eq('id', orderId).maybeSingle();
+  if (error || !order || !endpoint || !p256dh || !auth) throw new Error('A valid order and browser subscription are required.');
+  const { error: saveError } = await db.from('web_push_subscriptions').upsert({ order_id: order.id, endpoint, p256dh, auth, updated_at: new Date().toISOString() }, { onConflict: 'endpoint' });
+  if (saveError) throw new Error('Could not save notification permission.');
+}
+
+async function requireAdmin(req: Request) {
+  const token = (req.headers.get('authorization') || '').replace(/^Bearer\s+/i, '');
+  if (!token) throw new Error('Administrator sign-in is required.');
+  const { data, error } = await db.auth.getUser(token);
+  if (error || !data.user) throw new Error('Administrator sign-in is required.');
+  const { data: staff } = await db.from('staff').select('is_admin').eq('user_id', data.user.id).maybeSingle();
+  if (!staff?.is_admin) throw new Error('Administrator access is required.');
+}
+
+async function notifyOrderSubscribers(req: Request, orderId: string, status: string) {
+  await requireAdmin(req);
+  if (!vapidPublicKey || !vapidPrivateKey) throw new Error('Browser notification service is not configured.');
+  webpush.setVapidDetails('mailto:quaysonjeffrey12@gmail.com', vapidPublicKey, vapidPrivateKey);
+  const { data: order, error } = await db.from('orders').select('id,customer_name').eq('id', orderId).maybeSingle();
+  if (error || !order) throw new Error('Order not found.');
+  const { data: subscriptions } = await db.from('web_push_subscriptions').select('*').eq('order_id', order.id);
+  const labels: Record<string, string> = { pending: 'Order received', confirmed: 'Order confirmed', preparing: 'Preparing your order', looking_for_rider: 'Looking for a rider', out_for_delivery: 'Out for delivery', completed: 'Order complete', cancelled: 'Order cancelled' };
+  const payload = JSON.stringify({ title: 'Food2Suit order update', body: labels[status] || 'Your order has been updated.', url: `https://quaysonjeffrey12-ui.github.io/Food2suit.com/track-order.html?order=${order.id}` });
+  await Promise.all((subscriptions || []).map(async subscription => {
+    try { await webpush.sendNotification({ endpoint: subscription.endpoint, keys: { p256dh: subscription.p256dh, auth: subscription.auth } }, payload); }
+    catch (error) { if ([404, 410].includes(Number((error as { statusCode?: number }).statusCode))) await db.from('web_push_subscriptions').delete().eq('id', subscription.id); }
+  }));
+}
+
 Deno.serve(async req => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders });
   if (!paystackKey) return json({ error: 'Payment service is not configured.' }, 500);
@@ -99,7 +136,16 @@ Deno.serve(async req => {
     }
     if (body.action === 'refund') {
       const result = await refundOrder(String(body.order_id || ''));
+      await notifyOrderSubscribers(req, String(body.order_id || ''), 'cancelled');
       return json({ refunded: true, ...result });
+    }
+    if (body.action === 'subscribe_push') {
+      await subscribeToOrderUpdates(String(body.order_id || ''), body.subscription as Record<string, unknown>);
+      return json({ subscribed: true });
+    }
+    if (body.action === 'notify_push') {
+      await notifyOrderSubscribers(req, String(body.order_id || ''), String(body.status || 'pending'));
+      return json({ notified: true });
     }
     return json({ error: 'Unknown payment action.' }, 400);
   } catch (error) {

@@ -500,7 +500,11 @@
             if (!confirm('Cancel this order? This cannot be undone from the order ledger.')) return;
             const { error } = await window.Food2SuitDB.client.from('orders').update({ status: 'cancelled' }).eq('id', id);
             if (error) return alert(`Could not cancel the order: ${error.message}`);
+            sendOrderBrowserUpdate(id, 'cancelled');
             renderOrders();
+        }
+        async function sendOrderBrowserUpdate(id, status) {
+            try { await window.Food2SuitDB?.client?.functions.invoke('food2suit-paystack', { body: { action: 'notify_push', order_id: id, status } }); } catch (_) { /* A notification failure must not interrupt fulfilment. */ }
         }
         async function refundOrder(id) {
             if (!confirm('Cancel this paid order and send a full refund through Paystack? This cannot be undone.')) return;
@@ -522,6 +526,7 @@
             const db = window.Food2SuitDB.client;
             const { error } = await db.from('orders').update({ status: next }).eq('id', id);
             if (error) return;
+            sendOrderBrowserUpdate(id, next);
             if (next === 'confirmed') {
                 const { data: order } = await db.from('orders').select('*, order_items(*)').eq('id', id).maybeSingle();
                 try {
