@@ -96,7 +96,7 @@
                 <p class="text-xs text-gray-400 mt-1">Live-configure branding parameters, text fields, banners, and primary support endpoints.</p>
             </div>
             <section class="bg-gray-950 border border-gray-800 rounded-3xl p-5 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 shadow-xl shadow-black/40">
-                <div><p class="text-[10px] font-bold uppercase tracking-[.18em] text-orange-400">Shop status</p><h3 class="mt-1 text-base font-bold text-white">Food2Suit operates from 8:00 AM to 6:00 PM</h3><p class="mt-1 text-xs text-gray-400">Turn this off for an early close, a late opening, or any temporary closure. Closing saves the current session’s paid sales; reopening begins a fresh ledger.</p><p id="shop-session-summary" class="mt-2 text-[11px] text-gray-500"></p></div>
+                <div><p class="text-[10px] font-bold uppercase tracking-[.18em] text-orange-400">Shop status</p><h3 class="mt-1 text-base font-bold text-white">Food2Suit operates from 8:00 AM to 6:00 PM</h3><p class="mt-1 text-xs text-gray-400">Use the switch to close early, open before 8:00 AM, or stay open after 6:00 PM. Any manual opening lasts for today only, then the regular schedule resumes automatically.</p><p id="shop-session-summary" class="mt-2 text-[11px] text-gray-500"></p></div>
                 <label class="inline-flex items-center gap-3 rounded-2xl border border-gray-700 bg-gray-900 px-4 py-3 cursor-pointer"><input id="cfg-shop-open" type="checkbox" onchange="document.getElementById('cfg-shop-open-label').textContent=this.checked?'Open for orders':'Closed to new orders'" class="h-5 w-5 accent-emerald-500"><span id="cfg-shop-open-label" class="text-sm font-bold text-emerald-400">Open for orders</span></label>
             </section>
             <form onsubmit="handleSaveGlobalInfo(event)" class="bg-gray-950 border border-gray-800 rounded-3xl p-6 grid grid-cols-1 md:grid-cols-3 gap-5 shadow-xl shadow-black/40">
@@ -336,11 +336,21 @@
             return Object.fromEntries(parts.filter(part => part.type !== 'literal').map(part => [part.type, part.value]));
         }
         function ghanaDateKey() { const time = ghanaTimeParts(); return `${time.year}-${time.month}-${time.day}`; }
+        function ghanaHour() {
+            return Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Africa/Accra', hour: '2-digit', hourCycle: 'h23' }).format(new Date()));
+        }
+        function isWithinBusinessHours() { const hour = ghanaHour(); return hour >= 8 && hour < 18; }
+        function isAdminShopOpen(info = DATA_INFO) {
+            if (info?.manualClosedOn === ghanaDateKey()) return false;
+            return info?.manualOpenOn === ghanaDateKey() || isWithinBusinessHours();
+        }
         function scheduledBusinessStart() { const time = ghanaTimeParts(); return new Date(`${time.year}-${time.month}-${time.day}T08:00:00+00:00`); }
         function currentSessionStart() {
             const scheduled = scheduledBusinessStart();
             const saved = DATA_INFO?.businessDayStartedAt ? new Date(DATA_INFO.businessDayStartedAt) : null;
-            return saved && !Number.isNaN(saved.valueOf()) && saved > scheduled ? saved : scheduled;
+            const time = ghanaTimeParts();
+            const startOfToday = new Date(`${time.year}-${time.month}-${time.day}T00:00:00+00:00`);
+            return saved && !Number.isNaN(saved.valueOf()) && saved >= startOfToday ? saved : scheduled;
         }
 
         const cloudCategory = category => ({ traditional: 'local', local: 'local', salads: 'salads_sides', sides: 'drinks', drinks: 'drinks', proteins: 'proteins', rice: 'rice' })[category] || 'local';
@@ -708,9 +718,10 @@
             document.getElementById('cfg-address').value = DATA_INFO.address || '';
             document.getElementById('cfg-whatsapp').value = DATA_INFO.whatsapp || '';
             document.getElementById('cfg-about').value = DATA_INFO.about || '';
-            const shopOpen = DATA_INFO.shopOpen !== false || DATA_INFO.manualClosedOn !== ghanaDateKey();
+            const shopOpen = isAdminShopOpen();
             document.getElementById('cfg-shop-open').checked = shopOpen;
-            document.getElementById('cfg-shop-open-label').textContent = shopOpen ? 'Open for orders' : 'Closed to new orders';
+            const manuallyOpen = DATA_INFO.manualOpenOn === ghanaDateKey();
+            document.getElementById('cfg-shop-open-label').textContent = shopOpen ? (manuallyOpen ? 'Open now — override active' : 'Open for orders') : 'Closed to new orders';
             const sessionSummary = document.getElementById('shop-session-summary');
             const history = Array.isArray(DATA_INFO.salesHistory) ? DATA_INFO.salesHistory : [];
             const lastClose = history[history.length - 1];
@@ -975,11 +986,13 @@
 
         async function handleSaveGlobalInfo(e) {
             e.preventDefault();
-            const wasOpen = DATA_INFO.shopOpen !== false || DATA_INFO.manualClosedOn !== ghanaDateKey();
+            const wasOpen = isAdminShopOpen();
             const willBeOpen = document.getElementById('cfg-shop-open').checked;
             const now = new Date().toISOString();
             const businessDayStartedAt = currentSessionStart().toISOString();
             const salesHistory = Array.isArray(DATA_INFO.salesHistory) ? [...DATA_INFO.salesHistory] : [];
+            const today = ghanaDateKey();
+            const manualOpenOn = willBeOpen && (DATA_INFO.manualOpenOn === today || !isWithinBusinessHours()) ? today : null;
             if (wasOpen && !willBeOpen) {
                 const db = window.Food2SuitDB?.client;
                 if (db) {
@@ -1000,7 +1013,8 @@
                 whatsapp: document.getElementById('cfg-whatsapp').value,
                 about: document.getElementById('cfg-about').value,
                 shopOpen: willBeOpen,
-                manualClosedOn: willBeOpen ? null : ghanaDateKey(),
+                manualClosedOn: willBeOpen ? null : today,
+                manualOpenOn: willBeOpen ? manualOpenOn : null,
                 regularHours: 'Daily, 8:00 AM – 6:00 PM',
                 businessDayStartedAt: !wasOpen && willBeOpen ? now : businessDayStartedAt,
                 salesHistory: salesHistory.slice(-90)

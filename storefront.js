@@ -19,8 +19,9 @@
   }
   const ghanaDateKey = () => { const time = ghanaTime(); return `${time.year}-${time.month}-${time.day}`; };
   const isWithinBusinessHours = () => { const hour = Number(ghanaTime().hour); return hour >= 8 && hour < 18; };
+  const isManuallyOpenToday = () => shopInfo().manualOpenOn === ghanaDateKey();
   const isManuallyClosedToday = () => { const info = shopInfo(); return info.shopOpen === false && info.manualClosedOn === ghanaDateKey(); };
-  const isShopOpen = () => isWithinBusinessHours() && !isManuallyClosedToday();
+  const isShopOpen = () => !isManuallyClosedToday() && (isManuallyOpenToday() || isWithinBusinessHours());
   function syncOrderControls() {
     const closed = !isShopOpen();
     const selector = 'button[onclick*="handleAddToCartClick"], button[onclick*="handleFeaturedClick"], button[onclick*="Food2Suit.addProduct"], button[onclick*="Food2Suit.addToCart"], #modal-confirm-btn, #sf-customizer-confirm';
