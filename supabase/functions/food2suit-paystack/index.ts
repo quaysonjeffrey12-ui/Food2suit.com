@@ -38,12 +38,13 @@ async function markPaid(transaction: Record<string, unknown>) {
   const orderId = String(metadata?.order_id || '');
   const reference = String(transaction.reference || '');
   if (!orderId || !reference || transaction.status !== 'success') throw new Error('Payment is not complete.');
-  const { data: order, error } = await db.from('orders').select('id,total').eq('id', orderId).maybeSingle();
+  const { data: order, error } = await db.from('orders').select('id,total,customer_name').eq('id', orderId).maybeSingle();
   if (error || !order) throw new Error('The linked order could not be found.');
   if (Math.round(Number(order.total) * 100) !== Number(transaction.amount)) throw new Error('Payment amount does not match the order.');
   const fee = Math.max(0, Number(transaction.fees || 0) / 100);
   const { error: updateError } = await db.from('orders').update({ payment_status: 'paid', payment_reference: reference, payment_fee: fee, payment_net: Math.max(0, Number(order.total) - fee) }).eq('id', orderId);
   if (updateError) throw new Error('Payment was verified but the order could not be updated.');
+  try { await notifyStaffSubscribers(order.id); } catch (error) { console.error('Could not notify staff of a paid order:', error); }
   return orderId;
 }
 
@@ -82,6 +83,31 @@ async function requireAdmin(req: Request) {
   if (error || !data.user) throw new Error('Administrator sign-in is required.');
   const { data: staff } = await db.from('staff').select('is_admin').eq('user_id', data.user.id).maybeSingle();
   if (!staff?.is_admin) throw new Error('Administrator access is required.');
+  return data.user;
+}
+
+async function subscribeStaffToOrderAlerts(req: Request, subscription: Record<string, unknown>) {
+  const staffUser = await requireAdmin(req);
+  const endpoint = String(subscription?.endpoint || '');
+  const keys = subscription?.keys as Record<string, unknown> | undefined;
+  const p256dh = String(keys?.p256dh || ''), auth = String(keys?.auth || '');
+  if (!endpoint || !p256dh || !auth) throw new Error('A valid browser notification subscription is required.');
+  const { error } = await db.from('staff_push_subscriptions').upsert({ staff_user_id: staffUser.id, endpoint, p256dh, auth, updated_at: new Date().toISOString() }, { onConflict: 'endpoint' });
+  if (error) throw new Error('Could not save staff notification permission.');
+}
+
+async function notifyStaffSubscribers(orderId: string) {
+  if (!vapidPublicKey || !vapidPrivateKey) throw new Error('Browser notification service is not configured.');
+  webpush.setVapidDetails('mailto:quaysonjeffrey12@gmail.com', vapidPublicKey, vapidPrivateKey);
+  const { data: order, error } = await db.from('orders').select('id,customer_name,total').eq('id', orderId).maybeSingle();
+  if (error || !order) throw new Error('Order not found.');
+  const { data: subscriptions } = await db.from('staff_push_subscriptions').select('*');
+  const customer = order.customer_name || 'A customer';
+  const payload = JSON.stringify({ title: 'Food2Suit: new paid order', body: `${customer} placed an order for GH₵ ${Number(order.total || 0).toFixed(2)}.`, url: 'https://quaysonjeffrey12-ui.github.io/Food2suit.com/admin.html' });
+  await Promise.all((subscriptions || []).map(async subscription => {
+    try { await webpush.sendNotification({ endpoint: subscription.endpoint, keys: { p256dh: subscription.p256dh, auth: subscription.auth } }, payload); }
+    catch (error) { if ([404, 410].includes(Number((error as { statusCode?: number }).statusCode))) await db.from('staff_push_subscriptions').delete().eq('id', subscription.id); }
+  }));
 }
 
 async function notifyOrderSubscribers(req: Request, orderId: string, status: string) {
@@ -141,6 +167,10 @@ Deno.serve(async req => {
     }
     if (body.action === 'subscribe_push') {
       await subscribeToOrderUpdates(String(body.order_id || ''), body.subscription as Record<string, unknown>);
+      return json({ subscribed: true });
+    }
+    if (body.action === 'subscribe_staff_push') {
+      await subscribeStaffToOrderAlerts(req, body.subscription as Record<string, unknown>);
       return json({ subscribed: true });
     }
     if (body.action === 'notify_push') {

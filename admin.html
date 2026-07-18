@@ -580,6 +580,13 @@
         let adminOrderAlertsReady = false;
         let adminAlertAudioContext;
         let adminAlertTimer;
+        const staffPushPublicKey = 'BB8PI31CPGPRH1UoKp8M0jib9XjvTSQNuXs7SrEhPaZ-CpU6ej0IcACKT6Q-muV1Cv4zIyUhKW5_nBownz58qQw';
+
+        function urlBase64ToUint8Array(value) {
+            const padding = '='.repeat((4 - value.length % 4) % 4);
+            const raw = atob((value + padding).replace(/-/g, '+').replace(/_/g, '/'));
+            return Uint8Array.from([...raw].map(character => character.charCodeAt(0)));
+        }
 
         function refreshAdminAlertButton() {
             const button = document.getElementById('admin-alert-toggle');
@@ -591,14 +598,23 @@
         }
 
         async function enableAdminOrderAlerts() {
-            localStorage.setItem('food2suit_admin_order_alerts', 'enabled');
             try {
                 if ('Notification' in window && Notification.permission === 'default') await Notification.requestPermission();
+                if (Notification.permission !== 'granted') throw new Error('Notifications were not allowed. You can enable them in your browser settings later.');
+                if (!('serviceWorker' in navigator) || !('PushManager' in window)) throw new Error('This browser does not support background notifications.');
+                const db = window.Food2SuitDB?.client;
+                if (!db) throw new Error('The notification service is unavailable.');
+                const registration = await navigator.serviceWorker.register('push-service-worker.js');
+                let subscription = await registration.pushManager.getSubscription();
+                if (!subscription) subscription = await registration.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: urlBase64ToUint8Array(staffPushPublicKey) });
+                const { error } = await db.functions.invoke('food2suit-paystack', { body: { action: 'subscribe_staff_push', subscription: subscription.toJSON() } });
+                if (error) throw error;
                 adminAlertAudioContext = adminAlertAudioContext || new (window.AudioContext || window.webkitAudioContext)();
                 await adminAlertAudioContext.resume();
+                localStorage.setItem('food2suit_admin_order_alerts', 'enabled');
             } catch (_) { /* Sound depends on the browser's audio permission. */ }
             refreshAdminAlertButton();
-            alert('New-order alerts are enabled. Keep this admin page or installed app open during service hours.');
+            alert(localStorage.getItem('food2suit_admin_order_alerts') === 'enabled' ? 'Background new-order alerts are enabled for this device.' : 'Could not enable alerts. Make sure you are signed in as staff and allow notifications.');
         }
 
         function ringNewOrder() {
