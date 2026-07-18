@@ -1,6 +1,5 @@
 // Paystack secret stays in Supabase as PAYSTACK_SECRET_KEY. Never expose it to the storefront.
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
-import webpush from 'npm:web-push@3.6.7';
 
 const corsHeaders = {
   'Access-Control-Allow-Origin': '*',
@@ -17,6 +16,13 @@ const paystackKey = Deno.env.get('PAYSTACK_SECRET_KEY') || '';
 const vapidPublicKey = Deno.env.get('VAPID_PUBLIC_KEY') || '';
 const vapidPrivateKey = Deno.env.get('VAPID_PRIVATE_KEY') || '';
 const db = createClient(Deno.env.get('SUPABASE_URL') || '', Deno.env.get('SUPABASE_SERVICE_ROLE_KEY') || '');
+
+// Keep optional browser-alert code out of the function boot path.  A failed
+// notification dependency must never prevent customers from reaching payment.
+async function getWebPush() {
+  const module = await import('npm:web-push@3.6.7');
+  return module.default || module;
+}
 
 function callbackUrl(value: unknown) {
   const url = new URL(String(value || ''));
@@ -98,6 +104,7 @@ async function subscribeStaffToOrderAlerts(req: Request, subscription: Record<st
 
 async function notifyStaffSubscribers(orderId: string) {
   if (!vapidPublicKey || !vapidPrivateKey) throw new Error('Browser notification service is not configured.');
+  const webpush = await getWebPush();
   webpush.setVapidDetails('mailto:quaysonjeffrey12@gmail.com', vapidPublicKey, vapidPrivateKey);
   const { data: order, error } = await db.from('orders').select('id,customer_name,total').eq('id', orderId).maybeSingle();
   if (error || !order) throw new Error('Order not found.');
@@ -113,6 +120,7 @@ async function notifyStaffSubscribers(orderId: string) {
 async function notifyOrderSubscribers(req: Request, orderId: string, status: string) {
   await requireAdmin(req);
   if (!vapidPublicKey || !vapidPrivateKey) throw new Error('Browser notification service is not configured.');
+  const webpush = await getWebPush();
   webpush.setVapidDetails('mailto:quaysonjeffrey12@gmail.com', vapidPublicKey, vapidPrivateKey);
   const { data: order, error } = await db.from('orders').select('id,customer_name').eq('id', orderId).maybeSingle();
   if (error || !order) throw new Error('Order not found.');
