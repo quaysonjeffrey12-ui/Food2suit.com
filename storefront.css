@@ -2,6 +2,15 @@
 body { transition:background-color .28s ease,color .28s ease; }
 a,button,input,textarea,select { transition:color .18s ease,background-color .18s ease,border-color .18s ease,box-shadow .18s ease,transform .18s ease; }
 button:active { transform:scale(.97); }
+
+/* Gentle entrance motion as sections move into view.  The final state is
+   deliberately neutral so existing hover transforms on cards still work. */
+.sf-scroll-reveal{opacity:0;transform:translateY(28px) scale(.985);filter:blur(3px);transition:opacity .68s cubic-bezier(.22,1,.36,1),transform .68s cubic-bezier(.22,1,.36,1),filter .55s ease;will-change:opacity,transform,filter}
+.sf-scroll-reveal.sf-scroll-visible{opacity:1;transform:translateY(0) scale(1);filter:blur(0)}
+.sf-scroll-reveal.sf-scroll-left{transform:translateX(-34px)}
+.sf-scroll-reveal.sf-scroll-right{transform:translateX(34px)}
+.sf-scroll-reveal.sf-scroll-left.sf-scroll-visible,.sf-scroll-reveal.sf-scroll-right.sf-scroll-visible{transform:translateX(0)}
+@media (prefers-reduced-motion:reduce){html{scroll-behavior:auto}.sf-scroll-reveal,.sf-scroll-reveal.sf-scroll-left,.sf-scroll-reveal.sf-scroll-right{opacity:1;transform:none;filter:none;transition:none}}
 header nav a:not([class*="bg-"]){position:relative;border-radius:12px}header nav a:not([class*="bg-"]):hover{background:#FF6B35!important;color:#fff!important;transform:translateY(-2px);box-shadow:0 8px 18px rgba(255,107,53,.22)}
 .sf-dark { background:#111827 !important; color:#f9fafb !important; }.sf-dark main, .sf-dark .bg-\[\#fafafa\] { background:#111827 !important; }.sf-dark .bg-white { background:#1f2937 !important; }.sf-dark .text-gray-950, .sf-dark .text-gray-900, .sf-dark .text-gray-800 { color:#f9fafb !important; }.sf-dark .text-gray-500 { color:#cbd5e1 !important; }.sf-dark .border-gray-100, .sf-dark .border-gray-200 { border-color:#374151 !important; }.sf-dark .bg-gray-50 { background:#111827 !important; }
 .sf-header-controls{display:flex;align-items:center;gap:8px;margin-left:12px}.sf-header-button{position:relative;width:40px;height:40px;border:0;border-radius:12px;background:transparent;color:inherit;font-size:19px;cursor:pointer;transition:transform .2s,background .2s}.sf-header-button:hover{background:rgba(255,255,255,.12);transform:translateY(-2px)}.sf-tray-button{font-size:18px}.sf-tray-button span{position:absolute;top:-2px;right:-4px;display:grid;place-items:center;min-width:18px;height:18px;padding:0 4px;border-radius:99px;background:#FF6B35;color:#fff;font:bold 10px/1 system-ui}.sf-theme-mark{display:block;transform:rotate(-25deg)}

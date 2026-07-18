@@ -256,6 +256,42 @@ function showShopStatus() {
     if (location.hash === '#sf-guarantee' || location.hash === '#sf-about') setTimeout(() => document.querySelector(location.hash)?.scrollIntoView({ behavior: 'smooth', block: 'start' }), 80);
   }
 
+  let scrollRevealObserver;
+  function prepareScrollAnimations(root = document) {
+    const reducedMotion = window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    const selector = [
+      'main > *', '#sf-home-extras > section', '#sf-guarantee article',
+      '#grid > article', '#featured-grid > *', '.sf-testimonial-grid > *',
+      '.sf-footer > *'
+    ].join(',');
+    const targets = [...root.querySelectorAll(selector)].filter(element =>
+      !element.classList.contains('sf-scroll-reveal') &&
+      !element.classList.contains('reveal-on-scroll') &&
+      !element.closest('#sf-cart-drawer, #sf-customizer, #sf-checkout')
+    );
+    if (!targets.length) return;
+    if (reducedMotion || !('IntersectionObserver' in window)) {
+      targets.forEach(element => element.classList.add('sf-scroll-visible'));
+      return;
+    }
+    if (!scrollRevealObserver) {
+      scrollRevealObserver = new IntersectionObserver(entries => {
+        entries.forEach(entry => {
+          if (!entry.isIntersecting) return;
+          entry.target.classList.add('sf-scroll-visible');
+          scrollRevealObserver.unobserve(entry.target);
+        });
+      }, { threshold: 0.12, rootMargin: '0px 0px -36px 0px' });
+    }
+    targets.forEach((element, index) => {
+      element.classList.add('sf-scroll-reveal');
+      element.style.transitionDelay = `${Math.min((index % 5) * 70, 280)}ms`;
+      if (index % 7 === 1) element.classList.add('sf-scroll-left');
+      if (index % 7 === 4) element.classList.add('sf-scroll-right');
+      scrollRevealObserver.observe(element);
+    });
+  }
+
   function addHomeSections() {
     const onHome = /(^|\/)index\.html$/.test(location.pathname) || /Food2suit\.com\/$/.test(location.pathname);
     if (!onHome || document.getElementById('sf-home-extras')) return;
@@ -294,6 +330,10 @@ function showShopStatus() {
     document.body.insertAdjacentHTML('beforeend', `<aside id="sf-cart-drawer" aria-label="Food tray"><div class="sf-cart-head"><b>Your Food Tray</b><button onclick="Food2Suit.toggleCart()" aria-label="Close">×</button></div><div id="sf-cart-items"></div><div class="sf-cart-foot"><span>Total</span><b id="sf-cart-total">GH₵ 0.00</b><button onclick="Food2Suit.checkout()">Checkout</button></div></aside><div id="sf-customizer" role="dialog" aria-modal="true"><div class="sf-customizer-backdrop" onclick="document.getElementById('sf-customizer').classList.remove('open')"></div><div class="sf-customizer-box"><button class="sf-modal-close" onclick="document.getElementById('sf-customizer').classList.remove('open')" aria-label="Close">×</button><div class="sf-customizer-layout"><div class="sf-customizer-media"><img id="sf-customizer-image" alt="Selected dish"></div><div><p class="sf-kicker">Make it yours</p><h2 id="sf-customizer-title"></h2><p id="sf-customizer-base"></p><div id="sf-customizer-options"></div><button id="sf-customizer-confirm" class="sf-confirm">Add to tray</button></div></div></div></div>`);
     renderCart();
     document.querySelector('#sf-cart-drawer .sf-cart-foot button').onclick = openCheckout;
-    new MutationObserver(() => { if (!isShopOpen()) syncOrderControls(); }).observe(document.body, { childList: true, subtree: true });
+    prepareScrollAnimations();
+    new MutationObserver(() => {
+      if (!isShopOpen()) syncOrderControls();
+      prepareScrollAnimations();
+    }).observe(document.body, { childList: true, subtree: true });
   });
 })();
