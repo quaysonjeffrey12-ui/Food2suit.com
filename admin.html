@@ -120,6 +120,11 @@
                     <label class="block text-[11px] font-bold text-gray-400 uppercase mb-1">Hero Description</label>
                     <textarea id="cfg-desc" rows="3" required class="w-full bg-gray-900 border border-gray-700 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10"></textarea>
                 </div>
+                <div class="md:col-span-3 rounded-2xl border border-dashed border-gray-700 bg-gray-900/50 p-4">
+                    <label class="block text-[11px] font-bold text-gray-300 uppercase mb-1">Hero Banner Photos</label>
+                    <input id="cfg-hero-images" type="file" accept="image/jpeg,image/png,image/webp" multiple class="block w-full text-xs text-gray-400 file:mr-3 file:rounded-lg file:border-0 file:bg-orange-500 file:px-3 file:py-2 file:text-xs file:font-bold file:text-white hover:file:bg-orange-600">
+                    <p id="cfg-hero-images-summary" class="mt-2 text-[11px] text-gray-500">Choose 1–5 JPG, PNG, or WebP photos (10 MB maximum each). Selected photos replace the current hero slideshow when you save.</p>
+                </div>
                 <div>
                     <label class="block text-[11px] font-bold text-gray-400 uppercase mb-1">Contact Hotline</label>
                     <input type="text" id="cfg-phone" required class="w-full bg-gray-900 border border-gray-700 text-white rounded-xl px-3 py-2 text-xs focus:outline-none focus:border-orange-500 focus:ring-4 focus:ring-orange-500/10">
@@ -713,6 +718,9 @@
             document.getElementById('cfg-banner').value = DATA_INFO.bannerTag || '';
             document.getElementById('cfg-title').value = DATA_INFO.heroTitle || '';
             document.getElementById('cfg-desc').value = DATA_INFO.heroDesc || '';
+            const heroImageSummary = document.getElementById('cfg-hero-images-summary');
+            const heroImageCount = Array.isArray(DATA_INFO.heroImages) ? DATA_INFO.heroImages.length : 0;
+            if (heroImageSummary && heroImageCount) heroImageSummary.textContent = `${heroImageCount} hero banner photo${heroImageCount === 1 ? '' : 's'} currently live. Select new photos to replace them.`;
             document.getElementById('cfg-phone').value = DATA_INFO.phone || '';
             document.getElementById('cfg-email').value = DATA_INFO.email || '';
             document.getElementById('cfg-address').value = DATA_INFO.address || '';
@@ -986,6 +994,7 @@
 
         async function handleSaveGlobalInfo(e) {
             e.preventDefault();
+            const saveButton = e.submitter || e.target.querySelector('button[type="submit"]');
             const wasOpen = isAdminShopOpen();
             const willBeOpen = document.getElementById('cfg-shop-open').checked;
             const now = new Date().toISOString();
@@ -993,6 +1002,13 @@
             const salesHistory = Array.isArray(DATA_INFO.salesHistory) ? [...DATA_INFO.salesHistory] : [];
             const today = ghanaDateKey();
             const manualOpenOn = willBeOpen && (DATA_INFO.manualOpenOn === today || !isWithinBusinessHours()) ? today : null;
+            const heroImageInput = document.getElementById('cfg-hero-images');
+            const heroFiles = Array.from(heroImageInput?.files || []);
+            if (heroFiles.length > 5) return alert('Please choose no more than five hero banner photos.');
+            let heroImages = Array.isArray(DATA_INFO.heroImages) ? DATA_INFO.heroImages : [];
+            if (saveButton) { saveButton.disabled = true; saveButton.textContent = heroFiles.length ? 'Uploading banner photos…' : 'Saving changes…'; }
+            try {
+                if (heroFiles.length) heroImages = await Promise.all(heroFiles.map((file, index) => uploadImageFile(file, `hero/${Date.now()}-${index}`)));
             if (wasOpen && !willBeOpen) {
                 const db = window.Food2SuitDB?.client;
                 if (db) {
@@ -1007,6 +1023,7 @@
                 bannerTag: document.getElementById('cfg-banner').value,
                 heroTitle: document.getElementById('cfg-title').value,
                 heroDesc: document.getElementById('cfg-desc').value,
+                heroImages,
                 phone: document.getElementById('cfg-phone').value,
                 email: document.getElementById('cfg-email').value,
                 address: document.getElementById('cfg-address').value,
@@ -1022,9 +1039,15 @@
             localStorage.setItem('food2suit_registry_meta', JSON.stringify(DATA_INFO));
             cloudDigest = '';
             await syncCloudData();
+            if (heroImageInput) heroImageInput.value = '';
             hydrateFormInputs();
             renderOrders();
             alert(`Storefront settings saved. Food2Suit is now ${DATA_INFO.shopOpen ? 'open' : 'closed'} for new orders.`);
+            } catch (error) {
+                alert(`Storefront settings could not be saved: ${error.message}`);
+            } finally {
+                if (saveButton) { saveButton.disabled = false; saveButton.textContent = 'Save Layout Modifications'; }
+            }
         }
 
         function wipeAndResetAll() {

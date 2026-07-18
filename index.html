@@ -329,13 +329,15 @@ html {
         let selectedOptionCost = 0;
 
         // Background Carousel Assets
-        const HERO_IMAGES = [
+        const DEFAULT_HERO_IMAGES = [
             'https://images.unsplash.com/photo-1604328698692-f76ea9498e76?auto=format&fit=crop&w=1600&q=80',
             'https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=1600&q=80',
             'https://images.unsplash.com/photo-1603133872878-684f208fb84b?auto=format&fit=crop&w=1600&q=80',
             'https://images.unsplash.com/photo-1540420773420-3366772f4999?auto=format&fit=crop&w=1600&q=80'
         ];
+        let HERO_IMAGES = [...DEFAULT_HERO_IMAGES];
         let currentSlideIndex = 0;
+        let heroSliderTimer = null;
 
         const INITIAL_PRODUCTS = [
             // --- MAINS ---
@@ -401,6 +403,8 @@ html {
         function initHeroSlider() {
             const container = document.getElementById('hero-slider-container');
             if (!container) return;
+            if (heroSliderTimer) clearInterval(heroSliderTimer);
+            currentSlideIndex = 0;
 
             // Render image layers stacked on top of each other
             container.innerHTML = HERO_IMAGES.map((imgUrl, idx) => `
@@ -411,7 +415,8 @@ html {
             `).join('');
 
             // Rotate slides every 5 seconds
-            setInterval(() => {
+            if (HERO_IMAGES.length < 2) return;
+            heroSliderTimer = setInterval(() => {
                 const slides = container.querySelectorAll('[data-slide-index]');
                 if (slides.length === 0) return;
 
@@ -452,14 +457,23 @@ html {
             const db = window.Food2SuitDB?.client;
             if (!db) return;
             try {
-                const { data, error } = await db.from('products').select('*').eq('is_available', true).order('sort_order');
-                if (error || !data?.length) return;
-                PRODUCTS = data.map(product => ({
-                    id: Number(product.legacy_id), name: product.name, price: Number(product.price),
-                    category: ({ local: 'local', salads_sides: 'salads', drinks: 'drinks', proteins: 'proteins', rice: 'rice' })[product.category] || 'local',
-                    img: product.image_url, desc: product.description, options: product.side_options || [], featured: product.is_featured, available: true
-                }));
-                localStorage.setItem('food2suit_registry_products', JSON.stringify(PRODUCTS));
+                const [productsResult, settingsResult] = await Promise.all([
+                    db.from('products').select('*').eq('is_available', true).order('sort_order'),
+                    db.from('site_settings').select('setting_value').eq('setting_key', 'storefront').maybeSingle()
+                ]);
+                if (!productsResult.error && productsResult.data?.length) {
+                    PRODUCTS = productsResult.data.map(product => ({
+                        id: Number(product.legacy_id), name: product.name, price: Number(product.price),
+                        category: ({ local: 'local', salads_sides: 'salads', drinks: 'drinks', proteins: 'proteins', rice: 'rice' })[product.category] || 'local',
+                        img: product.image_url, desc: product.description, options: product.side_options || [], featured: product.is_featured, available: true
+                    }));
+                    localStorage.setItem('food2suit_registry_products', JSON.stringify(PRODUCTS));
+                }
+                if (!settingsResult.error && settingsResult.data?.setting_value) {
+                    META_INFO = { ...META_INFO, ...settingsResult.data.setting_value };
+                    localStorage.setItem('food2suit_registry_meta', JSON.stringify(META_INFO));
+                    applyMetadata();
+                }
                 refreshStorefrontUI();
             } catch (_) { /* Local menu remains available if the catalog cannot be reached. */ }
         }
@@ -476,6 +490,12 @@ html {
             document.getElementById('display-phone').innerText = META_INFO.phone;
             document.getElementById('display-phone').href = `tel:${META_INFO.phone}`;
             document.getElementById('display-address').innerText = META_INFO.address;
+            const configuredImages = Array.isArray(META_INFO.heroImages) ? META_INFO.heroImages.filter(url => typeof url === 'string' && url.trim()) : [];
+            const nextHeroImages = configuredImages.length ? configuredImages : DEFAULT_HERO_IMAGES;
+            if (JSON.stringify(HERO_IMAGES) !== JSON.stringify(nextHeroImages)) {
+                HERO_IMAGES = [...nextHeroImages];
+                initHeroSlider();
+            }
         }
 
         function refreshStorefrontUI() {
