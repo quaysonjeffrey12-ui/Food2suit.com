@@ -1,4 +1,4 @@
-const CACHE_NAME = 'food2suit-app-v1';
+const CACHE_NAME = 'food2suit-app-v2';
 const APP_SHELL = [
   './',
   './index.html',
