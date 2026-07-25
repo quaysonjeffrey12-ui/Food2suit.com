@@ -495,6 +495,7 @@
         async function sendTestOrderConfirmation(order) {
             const db = window.Food2SuitDB?.client;
             if (!db || !order) return;
+            if (!order.email) throw new Error('This order has no customer email address.');
             const trackingUrl = `https://quaysonjeffrey12-ui.github.io/Food2suit.com/track-order.html?order=${encodeURIComponent(order.id)}`;
             const items = (order.order_items || []).map(item => {
                 const side = Array.isArray(item.selected_options) && item.selected_options[0]?.name ? ` — ${item.selected_options[0].name}` : '';
@@ -502,7 +503,7 @@
             }).join('') || '<li>Your order details are being prepared.</li>';
             const delivery = /Method:\s*Delivery/i.test(order.notes || '');
             const html = `<div style="font-family:Arial,sans-serif;max-width:620px;margin:auto;color:#172033"><div style="background:#ff6b35;padding:26px 30px;border-radius:18px 18px 0 0;color:white"><h1 style="margin:0;font-size:27px">Your order is confirmed</h1><p style="margin:8px 0 0">Food2Suit is getting your meal ready.</p></div><div style="border:1px solid #e5e7eb;border-top:0;padding:28px 30px;border-radius:0 0 18px 18px"><p>Hello ${escapeEmailHtml(order.customer_name || 'there')},</p><p>Thank you for ordering with Food2Suit. Your order <strong>#${escapeEmailHtml(String(order.id).slice(0, 8).toUpperCase())}</strong> has been confirmed.</p><h2 style="font-size:18px;margin:24px 0 10px">Your order</h2><ul style="padding-left:20px;margin:0 0 16px">${items}</ul><p style="margin:8px 0"><strong>${delivery ? 'Delivery' : 'Pickup'}:</strong> ${delivery ? 'We will call to confirm your delivery fee and rider.' : 'We will let you know when your order is ready for collection.'}</p><p style="font-size:19px"><strong>Total: GH₵ ${Number(order.total || 0).toFixed(2)}</strong></p><a href="${trackingUrl}" style="display:inline-block;margin-top:12px;background:#ff6b35;color:#fff;text-decoration:none;padding:13px 20px;border-radius:10px;font-weight:bold">Track your order</a><p style="font-size:12px;color:#6b7280;margin-top:24px">We’ll keep you updated as your order moves forward.</p></div></div>`;
-            const { data, error } = await db.functions.invoke('food2suit-order-email', { body: { subject: `Food2Suit — order #${String(order.id).slice(0, 8).toUpperCase()} confirmed`, html } });
+            const { data, error } = await db.functions.invoke('food2suit-order-email', { body: { to: order.email.trim(), subject: `Food2Suit — order #${String(order.id).slice(0, 8).toUpperCase()} confirmed`, html } });
             if (error) throw new Error(error.message || 'The email service did not accept the request.');
             return data;
         }
@@ -513,7 +514,7 @@
             if (error || !order) return alert('Could not load this order for email sending.');
             try {
                 await sendTestOrderConfirmation(order);
-                alert('Confirmation email accepted for delivery. Check the Resend test inbox in a moment.');
+                alert(`Confirmation email accepted for delivery to ${order.email}.`);
             } catch (sendError) {
                 alert(`Confirmation email was not sent: ${sendError.message}`);
             }
