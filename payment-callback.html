@@ -16,8 +16,10 @@
     <p class="text-xs font-bold uppercase tracking-widest text-orange-400">Food2Suit payment</p>
     <h1 class="mt-3 text-2xl font-extrabold">Confirming your payment…</h1>
     <p id="message" class="mt-4 text-sm leading-6 text-slate-300">Please wait while we securely check Paystack’s response.</p>
-    <a id="track-link" class="mt-6 hidden rounded-xl bg-orange-500 px-5 py-3 text-sm font-bold text-white" href="track-order.html">Track your order</a>
-    <a href="index.html" class="mt-5 block text-sm font-bold text-orange-300">Return to homepage</a>
+    <div class="mt-7 flex flex-col items-center gap-4">
+      <a id="track-link" class="hidden rounded-xl bg-orange-500 px-5 py-3 text-sm font-bold text-white transition hover:bg-orange-400" href="track-order.html">Track your order</a>
+      <a href="index.html" class="text-sm font-bold text-orange-300 transition hover:text-orange-200">Return to homepage</a>
+    </div>
   </main>
   <script>
     const message = document.getElementById('message');
