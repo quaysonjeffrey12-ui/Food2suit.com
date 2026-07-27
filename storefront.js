@@ -75,8 +75,9 @@ function showShopStatus() {
     const totalEl = document.getElementById('sf-cart-total');
     if (totalEl) totalEl.textContent = money(total);
     if (itemsEl) itemsEl.innerHTML = cart.length ? cart.map(item => {
-      const image = item.img ? `<img src="${item.img}" alt="" loading="lazy">` : '<span class="sf-cart-placeholder">🍲</span>';
-      const option = item.option ? `<small class="sf-cart-option">${item.option}</small>` : '';
+      const imageUrl = item.img || item.image_url || item.image || '';
+      const image = imageUrl ? `<img src="${imageUrl}" alt="${item.name}" loading="lazy">` : '<span class="sf-cart-no-image">Food2Suit<br>dish</span>';
+      const option = item.option ? `<small class="sf-cart-option">Selected side: ${item.option}</small>` : '';
       return `<article class="sf-cart-item"><div class="sf-cart-image">${image}</div><div class="sf-cart-copy"><b>${item.name}</b>${option}<small>${money(item.price)} each</small><strong>${money(Number(item.price) * item.qty)}</strong></div><div class="sf-cart-quantity" aria-label="Quantity controls"><button aria-label="Remove one" onclick="Food2Suit.changeQty('${item.cartId}',-1)">−</button><span>${item.qty}</span><button aria-label="Add one" onclick="Food2Suit.changeQty('${item.cartId}',1)">+</button></div></article>`;
     }).join('') : '<div class="sf-empty"><span>🛒</span><b>Your tray is empty</b><small>Add a dish to begin your order.</small></div>';
   }
@@ -86,8 +87,10 @@ function showShopStatus() {
     const cart = getCart();
     const cartId = item.cartId || `${item.id}-${item.option || ''}`;
     const existing = cart.find(entry => entry.cartId === cartId);
-    if (existing) existing.qty += item.qty || 1;
-    else cart.push({ id: item.id, cartId, name: item.name, price: Number(item.price), qty: item.qty || 1, option: item.option || '', img: item.img || '' });
+    if (existing) {
+      existing.qty += item.qty || 1;
+      if (!existing.img) existing.img = item.img || item.image_url || item.image || '';
+    } else cart.push({ id: item.id, cartId, name: item.name, price: Number(item.price), qty: item.qty || 1, option: item.option || '', img: item.img || item.image_url || item.image || '' });
     saveCart(cart); renderCart();
   }
 

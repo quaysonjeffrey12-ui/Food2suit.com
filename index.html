@@ -27,7 +27,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
-    <link rel="stylesheet" href="storefront.css?v=cart-1">
+    <link rel="stylesheet" href="storefront.css?v=cart-2">
     <style>
         body { 
             font-family: 'Plus Jakarta Sans', sans-serif; 
@@ -787,10 +787,10 @@ html {
             } else {
                 container.innerHTML = cart.map(item => `
                     <article class="grid grid-cols-[64px_minmax(0,1fr)_auto] items-center gap-3 border-b border-gray-100 dark:border-gray-700/60 py-4 transition-all animate__animated animate__fadeInUp animate__faster">
-                        <div class="w-16 h-16 rounded-2xl overflow-hidden bg-gray-100 dark:bg-gray-700"><img src="${item.img || ''}" alt="" class="w-full h-full object-cover" onerror="this.parentElement.innerHTML='🍲';this.parentElement.classList.add('grid','place-items-center','text-2xl')"></div>
-                        <div class="min-w-0"><h4 class="text-sm font-bold text-gray-900 dark:text-white truncate" title="${item.name}">${item.name}</h4><p class="text-[11px] text-gray-500 dark:text-gray-400 truncate mt-1">GH₵ ${Number(item.price).toFixed(2)} each</p><p class="text-xs text-[#FF6B35] font-bold mt-1">GH₵ ${(item.price * item.qty).toFixed(2)}</p></div>
-                        <div class="grid grid-cols-[28px_24px_28px] items-center overflow-hidden rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50">
-                            <button onclick="updateQty('${item.cartUID}', -1)" class="h-8 text-gray-500 dark:text-gray-300 hover:bg-[#FF6B35] hover:text-white font-bold transition-colors">−</button><span class="text-xs font-bold text-center">${item.qty}</span><button onclick="updateQty('${item.cartUID}', 1)" class="h-8 text-gray-500 dark:text-gray-300 hover:bg-[#FF6B35] hover:text-white font-bold transition-colors">+</button>
+                        <div class="w-16 h-16 rounded-2xl overflow-hidden bg-gray-100 dark:bg-gray-700"><img src="${item.img || item.image_url || ''}" alt="${item.name}" class="w-full h-full object-cover" onerror="this.remove();this.parentElement.innerHTML='<span class=\'text-[10px] font-bold text-gray-400 text-center px-2\'>Food2Suit dish</span>';this.parentElement.classList.add('grid','place-items-center')"></div>
+                        <div class="min-w-0"><h4 class="text-[15px] font-bold text-gray-900 dark:text-white truncate" title="${item.name}">${item.name}</h4>${item.option ? `<p class="text-xs text-orange-500 dark:text-orange-300 font-bold truncate mt-1">Selected side: ${item.option}</p>` : ''}<p class="text-xs text-gray-500 dark:text-gray-400 truncate mt-1">GH₵ ${Number(item.price).toFixed(2)} each</p><p class="text-sm text-[#FF6B35] font-bold mt-1">GH₵ ${(item.price * item.qty).toFixed(2)}</p></div>
+                        <div class="grid grid-cols-[28px_24px_28px] items-center overflow-hidden rounded-xl border border-slate-700 bg-slate-900 text-white shadow-sm">
+                            <button onclick="updateQty('${item.cartUID}', -1)" class="h-8 text-slate-200 hover:bg-[#FF6B35] hover:text-white font-bold transition-colors">−</button><span class="text-xs font-bold text-center">${item.qty}</span><button onclick="updateQty('${item.cartUID}', 1)" class="h-8 text-slate-200 hover:bg-[#FF6B35] hover:text-white font-bold transition-colors">+</button>
                         </div>
                     </article>
                 `).join('');
@@ -854,7 +854,7 @@ html {
     </script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-client.js"></script>
-    <script src="storefront.js?v=cart-1"></script>
+    <script src="storefront.js?v=cart-2"></script>
     <script src="pwa.js"></script>
 </body>
 </html>
