@@ -27,7 +27,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
-    <link rel="stylesheet" href="storefront.css?v=scroll-2">
+    <link rel="stylesheet" href="storefront.css?v=cart-1">
     <style>
         body { 
             font-family: 'Plus Jakarta Sans', sans-serif; 
@@ -285,15 +285,15 @@ html {
         <div class="fixed inset-y-0 right-0 flex max-w-full pl-10">
             <div id="cart-panel" class="w-screen max-w-md bg-white dark:bg-gray-800 text-gray-900 dark:text-white flex flex-col h-full shadow-2xl transform translate-x-full transition-transform duration-300 ease-in-out border-l border-gray-100 dark:border-gray-800">
                 <div class="px-4 py-6 sm:px-6 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
-                    <h2 class="text-lg font-bold tracking-tight">Your Food Tray</h2>
+                    <div><p class="text-[10px] uppercase tracking-[0.16em] font-extrabold text-[#FF6B35] mb-1">Your order</p><h2 class="text-xl font-extrabold tracking-tight">Your Food Tray</h2></div>
                     <button onclick="toggleCart()" class="text-gray-400 hover:text-gray-500 dark:hover:text-gray-300 p-2 transition-colors rounded-xl hover:bg-gray-50 dark:hover:bg-gray-900"><svg class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg></button>
                 </div>
-                <div id="cart-items-container" class="flex-1 overflow-y-auto px-4 py-6 space-y-4 no-scrollbar"></div>
+                <div id="cart-items-container" class="flex-1 overflow-y-auto px-5 py-4 space-y-1 no-scrollbar"></div>
                 <div class="border-t border-gray-100 dark:border-gray-700 px-4 py-6 bg-gray-50 dark:bg-gray-900/40 transition-colors">
-                    <div class="flex justify-between text-sm font-medium text-gray-500 dark:text-gray-400 mb-2"><p>Subtotal</p><p id="cart-subtotal" class="font-semibold text-gray-900 dark:text-white">GH₵ 0.00</p></div>
-                    <div class="flex justify-between text-sm font-medium text-gray-500 dark:text-gray-400 mb-2"><p>Delivery Fee</p><p id="cart-delivery" class="font-semibold text-gray-900 dark:text-white">GH₵ 15.00</p></div>
-                    <div class="flex justify-between text-base font-bold mb-6 border-t border-gray-200 dark:border-gray-700 pt-4"><p>Total Amount</p><p id="cart-total" class="text-lg text-[#FF6B35]">GH₵ 15.00</p></div>
-                    <button onclick="triggerCheckout()" class="w-full bg-[#FF6B35] hover:bg-[#e55a2b] active:scale-[0.98] text-white font-bold py-3.5 rounded-xl shadow-lg shadow-[#FF6B35]/10 transition-all text-sm tracking-wide">Place Order via Payment Hub</button>
+                    <div class="flex items-center gap-2 rounded-xl bg-orange-50 dark:bg-orange-500/10 px-3 py-2 text-[11px] text-orange-700 dark:text-orange-200 mb-4"><span>🚚</span><span>Pickup or delivery is selected at checkout.</span></div>
+                    <div class="flex justify-between text-sm font-medium text-gray-500 dark:text-gray-400 mb-2"><p>Food subtotal</p><p id="cart-subtotal" class="font-semibold text-gray-900 dark:text-white">GH₵ 0.00</p></div>
+                    <div class="flex justify-between text-base font-bold mb-5 border-t border-gray-200 dark:border-gray-700 pt-4"><p>Food total</p><p id="cart-total" class="text-xl text-[#FF6B35]">GH₵ 0.00</p></div>
+                    <button onclick="triggerCheckout()" class="w-full flex items-center justify-between bg-[#FF6B35] hover:bg-[#e55a2b] active:scale-[0.98] text-white font-bold px-5 py-3.5 rounded-xl shadow-lg shadow-[#FF6B35]/10 transition-all text-sm tracking-wide"><span>Continue to checkout</span><span class="text-xl">→</span></button>
                 </div>
             </div>
         </div>
@@ -321,7 +321,7 @@ html {
         let PRODUCTS = [];
         let BUNDLES = [];
         let META_INFO = {};
-        let cart = [];
+        let cart = JSON.parse(localStorage.getItem('food2suit_cart') || '[]').map(item => ({ ...item, cartUID: item.cartId || `${item.id}-${item.option || ''}` }));
         let currentCategory = 'all';
         let isDarkMode = false;
         let activeModalProductId = null;
@@ -772,6 +772,8 @@ html {
                 item.qty += delta;
                 if(item.qty <= 0) cart = cart.filter(i => i.cartUID !== uid);
             }
+            localStorage.setItem('food2suit_cart', JSON.stringify(cart.map(({ cartUID, ...item }) => ({ ...item, cartId: cartUID }))));
+            window.Food2Suit?.renderCart?.();
             updateCartUI();
         }
 
@@ -781,27 +783,21 @@ html {
             const container = document.getElementById('cart-items-container');
             if(!container) return;
             if(cart.length === 0) {
-                container.innerHTML = `<div class="py-12 text-center text-gray-400 dark:text-gray-500 text-sm">Your food tray is completely empty.</div>`;
+                container.innerHTML = `<div class="py-16 text-center text-gray-400 dark:text-gray-500 text-sm"><div class="text-4xl mb-3">🛒</div><b class="block text-gray-700 dark:text-white mb-1">Your tray is empty</b>Add a dish to begin your order.</div>`;
             } else {
                 container.innerHTML = cart.map(item => `
-                    <div class="flex items-center justify-between gap-4 border-b border-gray-100 dark:border-gray-700/60 pb-3 transition-all animate__animated animate__fadeInUp animate__faster">
-                        <div class="flex-1 min-w-0">
-                            <h4 class="text-sm font-bold text-gray-900 dark:text-white truncate" title="${item.name}">${item.name}</h4>
-                            <p class="text-xs text-[#FF6B35] font-semibold mt-0.5">GH₵ ${(item.price * item.qty).toFixed(2)}</p>
+                    <article class="grid grid-cols-[64px_minmax(0,1fr)_auto] items-center gap-3 border-b border-gray-100 dark:border-gray-700/60 py-4 transition-all animate__animated animate__fadeInUp animate__faster">
+                        <div class="w-16 h-16 rounded-2xl overflow-hidden bg-gray-100 dark:bg-gray-700"><img src="${item.img || ''}" alt="" class="w-full h-full object-cover" onerror="this.parentElement.innerHTML='🍲';this.parentElement.classList.add('grid','place-items-center','text-2xl')"></div>
+                        <div class="min-w-0"><h4 class="text-sm font-bold text-gray-900 dark:text-white truncate" title="${item.name}">${item.name}</h4><p class="text-[11px] text-gray-500 dark:text-gray-400 truncate mt-1">GH₵ ${Number(item.price).toFixed(2)} each</p><p class="text-xs text-[#FF6B35] font-bold mt-1">GH₵ ${(item.price * item.qty).toFixed(2)}</p></div>
+                        <div class="grid grid-cols-[28px_24px_28px] items-center overflow-hidden rounded-xl border border-gray-200 dark:border-gray-600 bg-gray-50 dark:bg-gray-700/50">
+                            <button onclick="updateQty('${item.cartUID}', -1)" class="h-8 text-gray-500 dark:text-gray-300 hover:bg-[#FF6B35] hover:text-white font-bold transition-colors">−</button><span class="text-xs font-bold text-center">${item.qty}</span><button onclick="updateQty('${item.cartUID}', 1)" class="h-8 text-gray-500 dark:text-gray-300 hover:bg-[#FF6B35] hover:text-white font-bold transition-colors">+</button>
                         </div>
-                        <div class="flex items-center bg-gray-100 dark:bg-gray-700/50 rounded-xl p-1 border border-gray-200/20">
-                            <button onclick="updateQty('${item.cartUID}', -1)" class="px-2.5 py-1 text-gray-500 dark:text-gray-400 hover:text-[#FF6B35] dark:hover:text-[#FF6B35] font-bold text-xs transition-colors">-</button>
-                            <span class="px-1 text-xs font-bold min-w-[14px] text-center">${item.qty}</span>
-                            <button onclick="updateQty('${item.cartUID}', 1)" class="px-2.5 py-1 text-gray-500 dark:text-gray-400 hover:text-[#FF6B35] dark:hover:text-[#FF6B35] font-bold text-xs transition-colors">+</button>
-                        </div>
-                    </div>
+                    </article>
                 `).join('');
             }
             const subtotal = cart.reduce((acc, curr) => acc + (curr.price * curr.qty), 0);
-            const delivery = subtotal > 150 || subtotal === 0 ? 0.00 : 15.00;
             document.getElementById('cart-subtotal').innerText = `GH₵ ${subtotal.toFixed(2)}`;
-            document.getElementById('cart-delivery').innerText = `GH₵ ${delivery.toFixed(2)}`;
-            document.getElementById('cart-total').innerText = `GH₵ ${(subtotal + delivery).toFixed(2)}`;
+            document.getElementById('cart-total').innerText = `GH₵ ${subtotal.toFixed(2)}`;
         }
 
         function toggleTheme() {
@@ -826,7 +822,7 @@ html {
         }
 
         function handleContactSubmit(e) { e.preventDefault(); alert("Message sent."); e.target.reset(); }
-        function triggerCheckout() { alert("Connecting to Checkout network..."); }
+        function triggerCheckout() { if (!cart.length) return; location.href = 'checkout.html'; }
 
         // Progressive Scroll Animations Engine
         function initScrollAnimations() {
@@ -858,7 +854,7 @@ html {
     </script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-client.js"></script>
-    <script src="storefront.js?v=scroll-2"></script>
+    <script src="storefront.js?v=cart-1"></script>
     <script src="pwa.js"></script>
 </body>
 </html>

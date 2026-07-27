@@ -74,7 +74,11 @@ function showShopStatus() {
     const itemsEl = document.getElementById('sf-cart-items');
     const totalEl = document.getElementById('sf-cart-total');
     if (totalEl) totalEl.textContent = money(total);
-    if (itemsEl) itemsEl.innerHTML = cart.length ? cart.map(item => `<div class="sf-cart-item"><div><b>${item.name}</b><small>${money(item.price)} × ${item.qty}</small></div><div><button aria-label="Remove one" onclick="Food2Suit.changeQty('${item.cartId}',-1)">−</button><button aria-label="Add one" onclick="Food2Suit.changeQty('${item.cartId}',1)">+</button></div></div>`).join('') : '<p class="sf-empty">Your tray is empty.</p>';
+    if (itemsEl) itemsEl.innerHTML = cart.length ? cart.map(item => {
+      const image = item.img ? `<img src="${item.img}" alt="" loading="lazy">` : '<span class="sf-cart-placeholder">🍲</span>';
+      const option = item.option ? `<small class="sf-cart-option">${item.option}</small>` : '';
+      return `<article class="sf-cart-item"><div class="sf-cart-image">${image}</div><div class="sf-cart-copy"><b>${item.name}</b>${option}<small>${money(item.price)} each</small><strong>${money(Number(item.price) * item.qty)}</strong></div><div class="sf-cart-quantity" aria-label="Quantity controls"><button aria-label="Remove one" onclick="Food2Suit.changeQty('${item.cartId}',-1)">−</button><span>${item.qty}</span><button aria-label="Add one" onclick="Food2Suit.changeQty('${item.cartId}',1)">+</button></div></article>`;
+    }).join('') : '<div class="sf-empty"><span>🛒</span><b>Your tray is empty</b><small>Add a dish to begin your order.</small></div>';
   }
 
   function addToCart(item) {
@@ -83,7 +87,7 @@ function showShopStatus() {
     const cartId = item.cartId || `${item.id}-${item.option || ''}`;
     const existing = cart.find(entry => entry.cartId === cartId);
     if (existing) existing.qty += item.qty || 1;
-    else cart.push({ id: item.id, cartId, name: item.name, price: Number(item.price), qty: item.qty || 1, option: item.option || '' });
+    else cart.push({ id: item.id, cartId, name: item.name, price: Number(item.price), qty: item.qty || 1, option: item.option || '', img: item.img || '' });
     saveCart(cart); renderCart();
   }
 
@@ -302,6 +306,7 @@ function showShopStatus() {
   window.Food2Suit = {
     addToCart,
     addProduct,
+    renderCart,
     checkout: openCheckout,
     submitCheckout,
     formatMoney: money,
@@ -327,7 +332,7 @@ function showShopStatus() {
     if (!document.querySelector('link[href="guarantee.css"]')) document.head.insertAdjacentHTML('beforeend', '<link rel="stylesheet" href="guarantee.css">');
     applyTheme(); ensureHeaderControls(); addHomeSections(); addGuaranteeSection(); addReviewForm(); upgradeReviewForm(); addFooter(); upgradeFooter(); applySharedContent(); addMobileNavigation(); makeFooterAnchorsWork(); refreshShopStatus();
     if (location.pathname.endsWith('/offers.html')) document.body.classList.add('sf-offers');
-    document.body.insertAdjacentHTML('beforeend', `<aside id="sf-cart-drawer" aria-label="Food tray"><div class="sf-cart-head"><b>Your Food Tray</b><button onclick="Food2Suit.toggleCart()" aria-label="Close">×</button></div><div id="sf-cart-items"></div><div class="sf-cart-foot"><span>Total</span><b id="sf-cart-total">GH₵ 0.00</b><button onclick="Food2Suit.checkout()">Checkout</button></div></aside><div id="sf-customizer" role="dialog" aria-modal="true"><div class="sf-customizer-backdrop" onclick="document.getElementById('sf-customizer').classList.remove('open')"></div><div class="sf-customizer-box"><button class="sf-modal-close" onclick="document.getElementById('sf-customizer').classList.remove('open')" aria-label="Close">×</button><div class="sf-customizer-layout"><div class="sf-customizer-media"><img id="sf-customizer-image" alt="Selected dish"></div><div><p class="sf-kicker">Make it yours</p><h2 id="sf-customizer-title"></h2><p id="sf-customizer-base"></p><div id="sf-customizer-options"></div><button id="sf-customizer-confirm" class="sf-confirm">Add to tray</button></div></div></div></div>`);
+    document.body.insertAdjacentHTML('beforeend', `<aside id="sf-cart-drawer" aria-label="Food tray"><div class="sf-cart-head"><div><span class="sf-cart-kicker">Your order</span><b>Your Food Tray</b></div><button onclick="Food2Suit.toggleCart()" aria-label="Close">×</button></div><div id="sf-cart-items"></div><div class="sf-cart-foot"><div class="sf-cart-delivery-note"><span>🚚</span><small>Delivery or pickup is selected at checkout</small></div><div class="sf-cart-total-row"><span>Food total</span><b id="sf-cart-total">GH₵ 0.00</b></div><button onclick="Food2Suit.checkout()"><span>Continue to checkout</span><span>→</span></button></div></aside><div id="sf-customizer" role="dialog" aria-modal="true"><div class="sf-customizer-backdrop" onclick="document.getElementById('sf-customizer').classList.remove('open')"></div><div class="sf-customizer-box"><button class="sf-modal-close" onclick="document.getElementById('sf-customizer').classList.remove('open')" aria-label="Close">×</button><div class="sf-customizer-layout"><div class="sf-customizer-media"><img id="sf-customizer-image" alt="Selected dish"></div><div><p class="sf-kicker">Make it yours</p><h2 id="sf-customizer-title"></h2><p id="sf-customizer-base"></p><div id="sf-customizer-options"></div><button id="sf-customizer-confirm" class="sf-confirm">Add to tray</button></div></div></div></div>`);
     renderCart();
     document.querySelector('#sf-cart-drawer .sf-cart-foot button').onclick = openCheckout;
     prepareScrollAnimations();
