@@ -424,8 +424,12 @@
                     return `<li><b>${Number(item.quantity || 1)}&times; ${escapeEmailHtml(item.product_name)}</b>${side}<small class="mt-1 block text-xs text-gray-500">GH&#8373; ${Number(item.unit_price || 0).toFixed(2)} each</small></li>`;
                 }).join('') || '<li class="text-gray-500">Order items are still being saved…</li>';
                 const resend = current === 'confirmed' ? `<button onclick="resendOrderConfirmation('${order.id}')" class="mt-2 text-[11px] font-bold text-sky-400 hover:text-sky-300">Resend confirmation email</button>` : '';
-                const refund = order.payment_status === 'paid' && !order.refund_status && !['completed', 'cancelled'].includes(current) ? `<button onclick="refundOrder('${order.id}')" class="mt-2 block text-[11px] font-bold text-red-400 hover:text-red-300">Cancel &amp; refund payment</button>` : '';
-                const cancel = order.payment_status !== 'paid' && !['completed', 'cancelled'].includes(current) ? `<button onclick="cancelOrder('${order.id}')" class="mt-2 block text-[11px] font-bold text-red-400 hover:text-red-300">Cancel order</button>` : '';
+                // Cancellation is only available before the order has been confirmed.
+                // This keeps a confirmed order on its fulfilment path and prevents a cancelled
+                // order from being returned to pending through a stale button click.
+                const canCancel = current === 'pending';
+                const refund = canCancel && order.payment_status === 'paid' && !order.refund_status ? `<button onclick="refundOrder('${order.id}')" class="mt-2 block text-[11px] font-bold text-red-400 hover:text-red-300">Cancel &amp; refund payment</button>` : '';
+                const cancel = canCancel && order.payment_status !== 'paid' ? `<button onclick="cancelOrder('${order.id}')" class="mt-2 block text-[11px] font-bold text-red-400 hover:text-red-300">Cancel order</button>` : '';
                 const refundDetail = order.refund_status ? `<small class="mt-1 block text-[10px] text-orange-300">Refund ${escapeEmailHtml(order.refund_status)}${order.refund_amount ? `: GH&#8373; ${Number(order.refund_amount).toFixed(2)}` : ''}</small>` : '';
                 return `<tr class="ledger-row"><td class="px-5 py-5 text-gray-300">${when}<small class="mt-2 block text-xs text-gray-500">#${escapeEmailHtml(String(order.id).slice(0, 8).toUpperCase())}</small></td><td class="px-5 py-5 text-white font-bold">${escapeEmailHtml(order.customer_name || 'Guest')}<small class="mt-2 block text-sm text-gray-400 font-normal">${contact}</small><small class="mt-1 block text-sm text-gray-500 font-normal">${fulfilment}</small>${customerNotes ? `<small class="mt-2 block text-sm text-gray-400 font-normal">Note: ${escapeEmailHtml(customerNotes)}</small>` : ''}</td><td class="px-5 py-5 text-gray-200"><ul class="space-y-3">${items}</ul></td><td class="px-5 py-5 text-emerald-400 font-bold">GH&#8373; ${Number(order.total || 0).toFixed(2)}<small class="mt-2 block text-xs ${order.payment_status === 'paid' ? 'text-emerald-300' : 'text-amber-300'}">${payment}</small>${refundDetail}</td><td class="px-5 py-5"><b class="block text-sm text-white">${statusLabel}</b>${next ? `<button onclick="advanceOrder('${order.id}','${current}',${delivery})" class="mt-2 text-sm font-bold text-orange-400 hover:text-orange-300">Mark ${labels[next] || (delivery ? 'Delivered' : 'Picked up / done')} &rarr;</button>` : ''}${resend}${refund}${cancel}</td></tr>`;
             }).join('') || '<tr><td colspan="5" class="p-6 text-center text-gray-500">No orders recorded yet.</td></tr>';
@@ -521,7 +525,12 @@
         }
         async function cancelOrder(id) {
             if (!confirm('Cancel this order? This cannot be undone from the order ledger.')) return;
-            const { error } = await window.Food2SuitDB.client.from('orders').update({ status: 'cancelled' }).eq('id', id);
+            const db = window.Food2SuitDB?.client;
+            if (!db) return alert('Order service unavailable.');
+            const { data: order, error: loadError } = await db.from('orders').select('status').eq('id', id).maybeSingle();
+            if (loadError || !order) return alert('Could not load this order.');
+            if (order.status !== 'pending') return alert('Only new, pending orders can be cancelled. Confirmed orders must continue through fulfilment.');
+            const { error } = await db.from('orders').update({ status: 'cancelled' }).eq('id', id).eq('status', 'pending');
             if (error) return alert(`Could not cancel the order: ${error.message}`);
             sendOrderBrowserUpdate(id, 'cancelled');
             renderOrders();
@@ -534,6 +543,9 @@
             const db = window.Food2SuitDB?.client;
             if (!db) return alert('Payment service unavailable.');
             try {
+                const { data: order, error: loadError } = await db.from('orders').select('status').eq('id', id).maybeSingle();
+                if (loadError || !order) throw new Error('Could not load this order.');
+                if (order.status !== 'pending') throw new Error('Only new, pending orders can be cancelled and refunded.');
                 const { data, error } = await db.functions.invoke('food2suit-paystack', { body: { action: 'refund', order_id: id } });
                 if (error || data?.error) throw new Error(error?.message || data?.error || 'Paystack could not start the refund.');
                 alert(`Refund request ${data.refund_status || 'pending'}. Paystack will process it through the customer’s original payment route.`);
@@ -543,11 +555,16 @@
             }
         }
         async function advanceOrder(id, current, delivery) {
+            // A cancelled order has no next step. In particular, it must never be moved back to pending.
+            if (current === 'cancelled') return;
             const steps = delivery ? ['pending','confirmed','preparing','looking_for_rider','out_for_delivery','completed'] : ['pending','confirmed','preparing','completed'];
             const next = steps[steps.indexOf(current) + 1];
             if (!next) return;
             const db = window.Food2SuitDB.client;
-            const { error } = await db.from('orders').update({ status: next }).eq('id', id);
+            const { data: liveOrder, error: loadError } = await db.from('orders').select('status').eq('id', id).maybeSingle();
+            if (loadError || !liveOrder || liveOrder.status === 'cancelled') return renderOrders();
+            if (liveOrder.status !== current) return renderOrders();
+            const { error } = await db.from('orders').update({ status: next }).eq('id', id).eq('status', current);
             if (error) return;
             sendOrderBrowserUpdate(id, next);
             if (next === 'confirmed') {
