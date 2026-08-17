@@ -424,10 +424,9 @@
                     return `<li><b>${Number(item.quantity || 1)}&times; ${escapeEmailHtml(item.product_name)}</b>${side}<small class="mt-1 block text-xs text-gray-500">GH&#8373; ${Number(item.unit_price || 0).toFixed(2)} each</small></li>`;
                 }).join('') || '<li class="text-gray-500">Order items are still being saved…</li>';
                 const resend = current === 'confirmed' ? `<button onclick="resendOrderConfirmation('${order.id}')" class="mt-2 text-[11px] font-bold text-sky-400 hover:text-sky-300">Resend confirmation email</button>` : '';
-                // Cancellation is only available before the order has been confirmed.
-                // This keeps a confirmed order on its fulfilment path and prevents a cancelled
-                // order from being returned to pending through a stale button click.
-                const canCancel = current === 'pending';
+                // Staff may cancel a new order or an accepted order that has not entered preparation.
+                // Later fulfilment stages remain locked to prevent reversing kitchen work.
+                const canCancel = current === 'pending' || current === 'confirmed';
                 const refund = canCancel && order.payment_status === 'paid' && !order.refund_status ? `<button onclick="refundOrder('${order.id}')" class="mt-2 block text-[11px] font-bold text-red-400 hover:text-red-300">Cancel &amp; refund payment</button>` : '';
                 const cancel = canCancel && order.payment_status !== 'paid' ? `<button onclick="cancelOrder('${order.id}')" class="mt-2 block text-[11px] font-bold text-red-400 hover:text-red-300">Cancel order</button>` : '';
                 const refundDetail = order.refund_status ? `<small class="mt-1 block text-[10px] text-orange-300">Refund ${escapeEmailHtml(order.refund_status)}${order.refund_amount ? `: GH&#8373; ${Number(order.refund_amount).toFixed(2)}` : ''}</small>` : '';
@@ -529,8 +528,8 @@
             if (!db) return alert('Order service unavailable.');
             const { data: order, error: loadError } = await db.from('orders').select('status').eq('id', id).maybeSingle();
             if (loadError || !order) return alert('Could not load this order.');
-            if (order.status !== 'pending') return alert('Only new, pending orders can be cancelled. Confirmed orders must continue through fulfilment.');
-            const { error } = await db.from('orders').update({ status: 'cancelled' }).eq('id', id).eq('status', 'pending');
+            if (!['pending', 'confirmed'].includes(order.status)) return alert('Only pending or newly confirmed orders can be cancelled.');
+            const { error } = await db.from('orders').update({ status: 'cancelled' }).eq('id', id).in('status', ['pending', 'confirmed']);
             if (error) return alert(`Could not cancel the order: ${error.message}`);
             sendOrderBrowserUpdate(id, 'cancelled');
             renderOrders();
@@ -545,7 +544,7 @@
             try {
                 const { data: order, error: loadError } = await db.from('orders').select('status').eq('id', id).maybeSingle();
                 if (loadError || !order) throw new Error('Could not load this order.');
-                if (order.status !== 'pending') throw new Error('Only new, pending orders can be cancelled and refunded.');
+                if (!['pending', 'confirmed'].includes(order.status)) throw new Error('Only pending or newly confirmed orders can be cancelled and refunded.');
                 const { data, error } = await db.functions.invoke('food2suit-paystack', { body: { action: 'refund', order_id: id } });
                 if (error || data?.error) throw new Error(error?.message || data?.error || 'Paystack could not start the refund.');
                 alert(`Refund request ${data.refund_status || 'pending'}. Paystack will process it through the customer’s original payment route.`);

@@ -55,10 +55,11 @@ async function markPaid(transaction: Record<string, unknown>) {
 }
 
 async function refundOrder(orderId: string) {
-  const { data: order, error } = await db.from('orders').select('id,total,payment_status,payment_reference,refund_status').eq('id', orderId).maybeSingle();
+  const { data: order, error } = await db.from('orders').select('id,total,status,payment_status,payment_reference,refund_status').eq('id', orderId).maybeSingle();
   if (error || !order) throw new Error('Order not found.');
   if (order.payment_status !== 'paid' || !order.payment_reference) throw new Error('Only a paid order can be refunded.');
   if (order.refund_status === 'pending' || order.refund_status === 'processed') throw new Error('A refund has already been requested for this order.');
+  if (!['pending', 'confirmed'].includes(order.status)) throw new Error('Only pending or newly confirmed orders can be cancelled and refunded.');
   const response = await fetch('https://api.paystack.co/refund', {
     method: 'POST',
     headers: { Authorization: `Bearer ${paystackKey}`, 'Content-Type': 'application/json' },
