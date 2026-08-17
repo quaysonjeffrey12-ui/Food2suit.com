@@ -27,7 +27,7 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/animate.css/4.1.1/animate.min.css"/>
-    <link rel="stylesheet" href="storefront.css?v=cart-3">
+    <link rel="stylesheet" href="storefront.css?v=customizer-4">
     <style>
         body { 
             font-family: 'Plus Jakarta Sans', sans-serif; 
@@ -261,20 +261,20 @@ html {
     <div id="options-modal" class="fixed inset-0 z-50 overflow-hidden hidden transition-all duration-300 opacity-0" role="dialog" aria-modal="true">
         <div onclick="closeOptionsModal()" class="absolute inset-0 bg-gray-900/60 dark:bg-gray-950/80 backdrop-blur-sm transition-opacity"></div>
         <div class="absolute inset-0 flex items-center justify-center p-4 pointer-events-none">
-            <div class="bg-white dark:bg-gray-800 w-full max-w-md rounded-3xl p-6 shadow-2xl border border-gray-100 dark:border-gray-700 pointer-events-auto transform scale-95 transition-transform duration-300 ease-out" id="modal-box">
-                <div class="flex items-start justify-between mb-4">
-                    <div>
-                        <span class="text-[10px] font-bold text-[#FF6B35] uppercase tracking-wider bg-orange-50 dark:bg-orange-950/40 px-2.5 py-1 rounded-full">Preference Options</span>
-                        <h3 id="modal-title" class="text-xl font-bold text-gray-950 dark:text-white mt-1.5 tracking-tight">Customize Selection</h3>
-                    </div>
-                    <button onclick="closeOptionsModal()" class="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1.5 rounded-xl bg-gray-50 dark:bg-gray-900 transition-colors">
+            <div class="bg-white dark:bg-gray-800 w-full max-w-5xl max-h-[90vh] overflow-hidden rounded-3xl shadow-2xl border border-gray-100 dark:border-gray-700 pointer-events-auto transform scale-95 transition-transform duration-300 ease-out" id="modal-box">
+                <button onclick="closeOptionsModal()" class="absolute z-10 right-7 top-7 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 p-1.5 rounded-full bg-gray-50 dark:bg-gray-900 transition-colors" aria-label="Close customisation">
                         <svg class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" /></svg>
-                    </button>
-                </div>
-                <div id="modal-options-container" class="grid grid-cols-1 gap-2.5 mb-6"></div>
-                <div class="flex gap-3 border-t border-gray-100 dark:border-gray-700/60 pt-4">
-                    <button onclick="closeOptionsModal()" class="w-1/3 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 text-gray-700 dark:text-gray-300 font-semibold py-3 rounded-xl text-xs transition-colors">Cancel</button>
-                    <button id="modal-confirm-btn" onclick="confirmModalOption()" class="w-2/3 bg-[#FF6B35] hover:bg-[#e55a2b] active:scale-95 text-white font-bold py-3 rounded-xl text-xs transition-all shadow-md shadow-[#FF6B35]/10">Add To Tray</button>
+                </button>
+                <div class="grid md:grid-cols-[.88fr_1.12fr] max-h-[90vh] overflow-y-auto">
+                    <section class="bg-gray-50 dark:bg-gray-900/70 border-b md:border-b-0 md:border-r border-gray-100 dark:border-gray-700">
+                        <div class="h-64 md:h-[410px] flex items-center justify-center bg-white dark:bg-gray-950"><img id="modal-product-image" alt="Selected dish" class="w-full h-full object-contain"></div>
+                        <div class="p-6 md:p-8"><p class="text-[10px] font-bold text-[#FF6B35] uppercase tracking-[.14em]">Personalize your item</p><h3 id="modal-title" class="text-2xl font-extrabold text-gray-950 dark:text-white mt-1 tracking-tight">Customize Selection</h3><p id="modal-price" class="text-lg font-extrabold text-[#FF6B35] mt-1"></p><p id="modal-description" class="text-xs text-gray-500 dark:text-gray-400 leading-5 mt-4"></p><div class="mt-6 inline-flex overflow-hidden rounded-full border border-gray-200 dark:border-gray-600"><button type="button" onclick="changeModalQuantity(-1)" class="w-11 h-10 text-xl font-bold hover:bg-[#FF6B35] hover:text-white transition-colors">−</button><b id="modal-quantity" class="grid place-items-center w-10 text-sm">1</b><button type="button" onclick="changeModalQuantity(1)" class="w-11 h-10 text-xl font-bold hover:bg-[#FF6B35] hover:text-white transition-colors">+</button></div></div>
+                    </section>
+                    <section class="p-6 md:p-8 flex flex-col min-h-[440px]">
+                        <div class="flex items-start justify-between gap-4 pb-4"><div><h4 class="text-lg font-extrabold uppercase text-gray-900 dark:text-white">Choose your side</h4><p class="text-xs text-gray-400 mt-1">Select up to 1 item</p></div><span class="text-[10px] uppercase tracking-wider font-bold text-gray-400">Optional</span></div>
+                        <div id="modal-options-container" class="flex-1"></div>
+                        <div class="border-t border-gray-100 dark:border-gray-700 pt-5 mt-4"><button id="modal-confirm-btn" onclick="confirmModalOption()" class="w-full flex items-center justify-between bg-[#FF6B35] hover:bg-[#e55a2b] active:scale-[.99] text-white font-bold py-4 px-5 rounded-2xl text-sm transition-all shadow-md shadow-[#FF6B35]/10"><span>Add to tray</span><span id="modal-confirm-total"></span></button></div>
+                    </section>
                 </div>
             </div>
         </div>
@@ -327,6 +327,7 @@ html {
         let activeModalProductId = null;
         let selectedOptionText = null;
         let selectedOptionCost = 0;
+        let selectedModalQuantity = 1;
 
         // Background Carousel Assets
         const DEFAULT_HERO_IMAGES = [
@@ -667,21 +668,29 @@ html {
 
         function openOptionsModal(product) {
             activeModalProductId = product.id;
-            const firstOption = typeof product.options[0] === 'string' ? { name: product.options[0], price: 0 } : product.options[0];
-            selectedOptionText = firstOption.name;
-            selectedOptionCost = Number(firstOption.price || 0);
+            selectedOptionText = '';
+            selectedOptionCost = 0;
+            selectedModalQuantity = 1;
             document.getElementById('modal-title').innerText = product.name;
+            document.getElementById('modal-product-image').src = product.img || product.image_url || '';
+            document.getElementById('modal-product-image').alt = product.name;
+            document.getElementById('modal-price').innerText = `GH₵ ${Number(product.price).toFixed(2)}`;
+            document.getElementById('modal-description').innerText = product.desc || product.description || 'Choose an optional side or extra for your dish.';
+            document.getElementById('modal-quantity').innerText = selectedModalQuantity;
             const container = document.getElementById('modal-options-container');
-            container.innerHTML = product.options.map((rawOption, idx) => {
+            container.innerHTML = `<button type="button" onclick='selectModalOption(this, "", 0)' class="option-choice-btn w-full flex items-center justify-between gap-4 py-4 border-y border-gray-100 dark:border-gray-700 text-left text-sm font-semibold transition-all">
+                    <span><span class="block text-gray-800 dark:text-gray-100">No extra side</span><small class="block mt-1 text-xs text-gray-400 font-normal">Keep it as served</small></span><span class="text-[#FF6B35] text-xs whitespace-nowrap">Included</span><span class="dot-indicator w-7 h-7 rounded-full border-2 border-gray-400 dark:border-gray-500 flex items-center justify-center"><span class="inner-dot h-2.5 w-2.5 rounded-full bg-[#FF6B35] hidden"></span></span>
+                </button>` + product.options.map((rawOption) => {
                 const option = typeof rawOption === 'string' ? { name: rawOption, price: 0 } : rawOption;
                 return `
-                <button onclick='selectModalOption(this, ${JSON.stringify(option.name)}, ${Number(option.price || 0)})' class="option-choice-btn w-full flex items-center justify-between px-5 py-4 rounded-2xl border text-sm font-semibold transition-all ${idx === 0 ? 'border-[#FF6B35] bg-orange-50/50 dark:bg-orange-950/20 text-[#FF6B35]' : 'border-gray-100 dark:border-gray-700 bg-gray-50 dark:bg-gray-900/50 text-gray-800 dark:text-gray-200'}">
-                    <span>${option.name}</span><span class="text-[#FF6B35] text-xs">+ GH₵ ${Number(option.price || 0).toFixed(2)}</span>
-                    <span class="dot-indicator h-4 w-4 rounded-full border-2 flex items-center justify-center ${idx === 0 ? 'border-[#FF6B35]' : 'border-gray-300 dark:border-gray-600'}">
-                        <span class="inner-dot h-2 w-2 rounded-full bg-[#FF6B35] ${idx === 0 ? 'block' : 'hidden'}"></span>
+                <button type="button" onclick='selectModalOption(this, ${JSON.stringify(option.name)}, ${Number(option.price || 0)})' class="option-choice-btn w-full flex items-center justify-between gap-4 py-4 border-b border-gray-100 dark:border-gray-700 text-left text-sm font-semibold transition-all hover:bg-orange-50/30 dark:hover:bg-orange-950/10">
+                    <span class="min-w-0"><span class="block text-gray-800 dark:text-gray-100">${option.name}</span><small class="block mt-1 text-xs text-gray-400 font-normal">Added to your dish</small></span><span class="text-[#FF6B35] text-xs whitespace-nowrap">+ GH₵ ${Number(option.price || 0).toFixed(2)}</span>
+                    <span class="dot-indicator w-7 h-7 rounded-full border-2 border-gray-400 dark:border-gray-500 flex items-center justify-center">
+                        <span class="inner-dot h-2.5 w-2.5 rounded-full bg-[#FF6B35] hidden"></span>
                     </span>
                 </button>
             `}).join('');
+            updateModalConfirmTotal();
             
             const modal = document.getElementById('options-modal');
             const box = document.getElementById('modal-box');
@@ -696,17 +705,28 @@ html {
             selectedOptionText = val;
             selectedOptionCost = Number(cost || 0);
             document.querySelectorAll('.option-choice-btn').forEach(btn => {
-                btn.classList.remove('border-[#FF6B35]', 'bg-orange-50/50', 'dark:bg-orange-950/20', 'text-[#FF6B35]');
-                btn.classList.add('border-gray-100', 'dark:border-gray-700', 'bg-gray-50', 'dark:bg-gray-900/50', 'text-gray-800', 'dark:text-gray-200');
+                btn.classList.remove('bg-orange-50/50', 'dark:bg-orange-950/20');
                 btn.querySelector('.dot-indicator').classList.remove('border-[#FF6B35]');
-                btn.querySelector('.dot-indicator').classList.add('border-gray-300', 'dark:border-gray-600');
+                btn.querySelector('.dot-indicator').classList.add('border-gray-400', 'dark:border-gray-500');
                 btn.querySelector('.inner-dot').classList.add('hidden');
             });
-            element.classList.remove('border-gray-100', 'dark:border-gray-700', 'bg-gray-50', 'dark:bg-gray-900/50', 'text-gray-800', 'dark:text-gray-200');
-            element.classList.add('border-[#FF6B35]', 'bg-orange-50/50', 'dark:bg-orange-950/20', 'text-[#FF6B35]');
-            element.querySelector('.dot-indicator').classList.remove('border-gray-300', 'dark:border-gray-600');
+            element.classList.add('bg-orange-50/50', 'dark:bg-orange-950/20');
+            element.querySelector('.dot-indicator').classList.remove('border-gray-400', 'dark:border-gray-500');
             element.querySelector('.dot-indicator').classList.add('border-[#FF6B35]');
             element.querySelector('.inner-dot').classList.remove('hidden');
+            updateModalConfirmTotal();
+        }
+
+        function changeModalQuantity(delta) {
+            selectedModalQuantity = Math.max(1, selectedModalQuantity + delta);
+            document.getElementById('modal-quantity').innerText = selectedModalQuantity;
+            updateModalConfirmTotal();
+        }
+
+        function updateModalConfirmTotal() {
+            const product = PRODUCTS.find(item => item.id === activeModalProductId);
+            if (!product) return;
+            document.getElementById('modal-confirm-total').innerText = `GH₵ ${((Number(product.price) + Number(selectedOptionCost || 0)) * selectedModalQuantity).toFixed(2)}`;
         }
 
         function closeOptionsModal() { 
@@ -718,8 +738,8 @@ html {
         }
 
         function confirmModalOption() {
-            if (activeModalProductId && selectedOptionText) {
-                executeAddToCart(activeModalProductId, PRODUCTS, selectedOptionText, selectedOptionCost);
+            if (activeModalProductId) {
+                for (let count = 0; count < selectedModalQuantity; count++) executeAddToCart(activeModalProductId, PRODUCTS, selectedOptionText, selectedOptionCost);
                 closeOptionsModal();
             }
         }
@@ -854,7 +874,7 @@ html {
     </script>
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script src="supabase-client.js"></script>
-    <script src="storefront.js?v=cart-3"></script>
+    <script src="storefront.js?v=customizer-4"></script>
     <script src="pwa.js"></script>
 </body>
 </html>
