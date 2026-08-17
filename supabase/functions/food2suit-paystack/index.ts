@@ -126,7 +126,7 @@ async function notifyOrderSubscribers(req: Request, orderId: string, status: str
   const { data: order, error } = await db.from('orders').select('id,customer_name').eq('id', orderId).maybeSingle();
   if (error || !order) throw new Error('Order not found.');
   const { data: subscriptions } = await db.from('web_push_subscriptions').select('*').eq('order_id', order.id);
-  const labels: Record<string, string> = { pending: 'Order received', confirmed: 'Order confirmed', preparing: 'Preparing your order', looking_for_rider: 'Looking for a rider', out_for_delivery: 'Out for delivery', completed: 'Order complete', cancelled: 'Order cancelled' };
+  const labels: Record<string, string> = { pending: 'Order received', confirmed: 'Order confirmed', preparing: 'Preparing your order', ready: 'Ready for collection', looking_for_rider: 'Looking for a rider', out_for_delivery: 'Out for delivery', completed: 'Order complete', cancelled: 'Order cancelled' };
   const payload = JSON.stringify({ title: 'Food2Suit order update', body: labels[status] || 'Your order has been updated.', url: `https://quaysonjeffrey12-ui.github.io/Food2suit.com/track-order.html?order=${order.id}` });
   await Promise.all((subscriptions || []).map(async subscription => {
     try { await webpush.sendNotification({ endpoint: subscription.endpoint, keys: { p256dh: subscription.p256dh, auth: subscription.auth } }, payload); }

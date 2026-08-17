@@ -406,11 +406,11 @@
             sessionOrders.forEach(order => { if (order.status === 'completed') groups.completed++; else if (order.status === 'pending') groups.pending++; else groups.active++; });
             const sessionSales = sessionOrders.filter(order => order.status !== 'cancelled' && order.payment_status === 'paid').reduce((total, order) => total + Number(order.total || 0), 0);
             summary.innerHTML = [['New orders', groups.pending, 'text-orange-400'], ['In progress', groups.active, 'text-blue-400'], ['Finished', groups.completed, 'text-emerald-400'], ['Paid sales this session', `GH&#8373; ${sessionSales.toFixed(2)}`, 'text-violet-400']].map(([label, value, color]) => `<article class="bg-gray-950 border border-gray-800 rounded-2xl p-5"><p class="text-xs text-gray-400">${label}</p><b class="text-3xl ${color}">${value}</b></article>`).join('');
-            const labels = { pending:'Pending', confirmed:'Confirmed', preparing:'Preparing order', looking_for_rider:'Looking for rider', out_for_delivery:'Out for delivery' };
+            const labels = { pending:'Pending', confirmed:'Confirmed', preparing:'Preparing order', ready:'Ready for collection', looking_for_rider:'Looking for rider', out_for_delivery:'Out for delivery' };
             target.innerHTML = sessionOrders.map(order => {
                 const when = new Date(order.created_at).toLocaleString();
                 const delivery = /Method:\s*Delivery/i.test(order.notes || '');
-                const steps = delivery ? ['pending','confirmed','preparing','looking_for_rider','out_for_delivery','completed'] : ['pending','confirmed','preparing','completed'];
+                const steps = delivery ? ['pending','confirmed','preparing','ready','looking_for_rider','out_for_delivery','completed'] : ['pending','confirmed','preparing','ready','completed'];
                 const current = order.status === 'cancelled' ? 'cancelled' : (steps.includes(order.status) ? order.status : 'pending');
                 const next = steps[steps.indexOf(current) + 1];
                 const statusLabel = current === 'cancelled' ? 'Cancelled' : (current === 'completed' ? (delivery ? 'Delivered' : 'Picked up / done') : labels[current]);
@@ -556,7 +556,7 @@
         async function advanceOrder(id, current, delivery) {
             // A cancelled order has no next step. In particular, it must never be moved back to pending.
             if (current === 'cancelled') return;
-            const steps = delivery ? ['pending','confirmed','preparing','looking_for_rider','out_for_delivery','completed'] : ['pending','confirmed','preparing','completed'];
+            const steps = delivery ? ['pending','confirmed','preparing','ready','looking_for_rider','out_for_delivery','completed'] : ['pending','confirmed','preparing','ready','completed'];
             const next = steps[steps.indexOf(current) + 1];
             if (!next) return;
             const db = window.Food2SuitDB.client;
